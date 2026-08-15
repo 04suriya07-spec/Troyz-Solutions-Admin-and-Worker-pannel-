@@ -1,0 +1,17 @@
+{
+  "name": "TaskFlow Admin",
+  "short_name": "TF Admin",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0A0A14",
+  "theme_color": "#6C63FF",
+  "description": "Troyz Solutions TaskFlow Admin Management Dashboard",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/512/briefcase.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
