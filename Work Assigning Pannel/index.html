@@ -1,0 +1,2259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>TaskFlow — Admin Panel</title>
+  <meta name="description" content="TaskFlow Admin Dashboard — manage workers, projects, tasks, applications and reviews."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Firebase SDK & Cloud Sync -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+  <script src="cloud-sync.js"></script>
+  <style>
+    :root{
+      --accent:#6C63FF;--accent2:#A78BFA;--accent-glow:rgba(108,99,255,0.3);--accent-dim:rgba(108,99,255,0.1);
+      --success:#00D4AA;--danger:#FF4D6D;--warning:#FFB703;--info:#38BDF8;--purple:#A78BFA;
+      --bg:#0A0A14;--bg2:#0F0F1E;--bg3:#141428;--bg4:#1A1A35;
+      --glass:rgba(255,255,255,0.03);--glass-border:rgba(255,255,255,0.07);
+      --text:#F0EFFF;--text2:#8B89C4;--text3:#3D3B6E;
+      --radius:14px;--radius-sm:8px;--shadow:0 8px 32px rgba(0,0,0,0.6);
+      --transition:0.22s cubic-bezier(0.4,0,0.2,1);
+      --sidebar-w:260px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:var(--bg2)}
+    ::-webkit-scrollbar-thumb{background:var(--accent);border-radius:99px}
+
+    /* ── SIDEBAR ── */
+    #sidebar{position:fixed;left:0;top:0;width:var(--sidebar-w);height:100vh;background:var(--bg2);border-right:1px solid var(--glass-border);display:flex;flex-direction:column;z-index:200;transition:width var(--transition)}
+    #sidebar.collapsed{width:64px}
+    .sidebar-logo{display:flex;align-items:center;gap:12px;padding:22px 18px 18px;border-bottom:1px solid var(--glass-border);flex-shrink:0}
+    .logo-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;box-shadow:0 0 20px var(--accent-glow)}
+    .logo-text{font-size:17px;font-weight:800;white-space:nowrap;overflow:hidden;transition:opacity var(--transition)}
+    .logo-sub{font-size:9px;color:var(--accent);font-weight:600;letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
+    #sidebar.collapsed .logo-text-wrap{display:none}
+    .sidebar-toggle{position:absolute;right:-13px;top:28px;width:26px;height:26px;border-radius:50%;background:var(--accent);border:2px solid var(--bg2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;transition:transform var(--transition);box-shadow:0 0 12px var(--accent-glow)}
+    #sidebar.collapsed .sidebar-toggle{transform:rotate(180deg)}
+    .sidebar-nav{flex:1;overflow-y:auto;padding:10px 0 16px}
+    .nav-section{padding:14px 18px 6px;font-size:9px;font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase;white-space:nowrap;overflow:hidden;transition:opacity var(--transition)}
+    #sidebar.collapsed .nav-section{display:none}
+    .nav-item{display:flex;align-items:center;gap:11px;padding:10px 18px;cursor:pointer;transition:all var(--transition);position:relative;white-space:nowrap;overflow:hidden;user-select:none}
+    .nav-item:hover{background:var(--glass);color:var(--accent2)}
+    .nav-item.active{background:var(--accent-dim);color:var(--accent)}
+    .nav-item.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--accent);border-radius:0 3px 3px 0}
+    .nav-icon{font-size:17px;flex-shrink:0;width:22px;text-align:center}
+    .nav-label{font-size:13px;font-weight:500;flex:1;overflow:hidden}
+    #sidebar.collapsed .nav-label{display:none}
+    .nav-badge{background:var(--danger);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;flex-shrink:0}
+    .sidebar-user{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid var(--glass-border);flex-shrink:0}
+    .user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;color:#fff}
+    .user-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden}
+    .user-role{font-size:10px;color:var(--accent);font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+    #sidebar.collapsed .sidebar-user-info{display:none}
+
+    /* ── MAIN ── */
+    #main{margin-left:var(--sidebar-w);min-height:100vh;transition:margin-left var(--transition)}
+    #main.collapsed{margin-left:64px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:20px 28px 0;margin-bottom:4px}
+    .topbar-title h1{font-size:22px;font-weight:800}
+    .topbar-title p{font-size:13px;color:var(--text2);margin-top:3px}
+    .topbar-actions{display:flex;align-items:center;gap:12px}
+    .page{display:none;padding:20px 28px 40px;animation:fadeIn 0.3s ease}
+    .page.active{display:block}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    /* ── STATS GRID ── */
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:22px}
+    .stat-card{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;transition:transform var(--transition),box-shadow var(--transition)}
+    .stat-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.4)}
+    .stat-card::before{content:'';position:absolute;inset:0;opacity:0.04;pointer-events:none}
+    .stat-card.s-workers::before{background:var(--accent)}
+    .stat-card.s-apps::before{background:var(--warning)}
+    .stat-card.s-active::before{background:var(--info)}
+    .stat-card.s-review::before{background:var(--purple)}
+    .stat-card.s-overdue::before{background:var(--danger)}
+    .stat-card.s-done::before{background:var(--success)}
+    .stat-icon{font-size:22px;margin-bottom:10px}
+    .stat-value{font-size:30px;font-weight:800;line-height:1}
+    .stat-label{font-size:11px;color:var(--text2);margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+    .stat-sub{font-size:11px;color:var(--text3);margin-top:6px}
+
+    /* ── NEEDS ATTENTION ── */
+    .attention-panel{background:var(--bg2);border:1px solid rgba(255,77,109,0.2);border-radius:var(--radius);padding:20px;margin-bottom:22px}
+    .attention-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+    .attention-title{font-size:15px;font-weight:700;color:var(--danger)}
+    .attention-list{display:flex;flex-direction:column;gap:10px}
+    .attention-item{display:flex;align-items:center;gap:12px;background:rgba(255,77,109,0.06);border:1px solid rgba(255,77,109,0.15);border-radius:var(--radius-sm);padding:12px 16px;cursor:pointer;transition:all var(--transition)}
+    .attention-item:hover{background:rgba(255,77,109,0.1)}
+    .attention-item .ai-icon{font-size:18px;width:28px;text-align:center;flex-shrink:0}
+    .attention-item .ai-text{flex:1;font-size:13px;font-weight:500}
+    .attention-item .ai-count{background:var(--danger);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+    .attention-item .ai-action{font-size:11px;color:var(--accent2);font-weight:600}
+
+    /* ── SECTION HEADER ── */
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .section-title{font-size:15px;font-weight:700}
+    .section-sub{font-size:12px;color:var(--text2);margin-top:2px}
+
+    /* ── TABLE ── */
+    .table-wrap{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);overflow:hidden}
+    table{width:100%;border-collapse:collapse}
+    th{background:var(--bg3);padding:11px 16px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;border-bottom:1px solid var(--glass-border);white-space:nowrap}
+    td{padding:12px 16px;border-bottom:1px solid var(--glass-border);font-size:13px;vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:var(--glass)}
+    .td-name{font-weight:600;display:flex;align-items:center;gap:10px}
+    .td-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;color:#fff}
+
+    /* ── BADGES ── */
+    .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+    .badge-new{background:rgba(56,189,248,0.15);color:var(--info);border:1px solid rgba(56,189,248,0.2)}
+    .badge-underreview{background:rgba(255,183,3,0.15);color:var(--warning);border:1px solid rgba(255,183,3,0.2)}
+    .badge-approved{background:rgba(0,212,170,0.15);color:var(--success);border:1px solid rgba(0,212,170,0.2)}
+    .badge-rejected{background:rgba(255,77,109,0.15);color:var(--danger);border:1px solid rgba(255,77,109,0.2)}
+    .badge-invited{background:rgba(255,183,3,0.15);color:var(--warning);border:1px solid rgba(255,183,3,0.2)}
+    .badge-active{background:rgba(0,212,170,0.15);color:var(--success);border:1px solid rgba(0,212,170,0.2)}
+    .badge-inactive{background:rgba(255,255,255,0.08);color:var(--text2);border:1px solid var(--glass-border)}
+    .badge-suspended{background:rgba(255,77,109,0.15);color:var(--danger);border:1px solid rgba(255,77,109,0.2)}
+    .badge-completed{background:rgba(108,99,255,0.15);color:var(--accent2);border:1px solid rgba(108,99,255,0.2)}
+    .badge-assigned{background:rgba(56,189,248,0.1);color:var(--info);border:1px solid rgba(56,189,248,0.15)}
+    .badge-accepted{background:rgba(108,99,255,0.1);color:var(--accent2);border:1px solid rgba(108,99,255,0.15)}
+    .badge-inprogress{background:rgba(255,183,3,0.12);color:var(--warning);border:1px solid rgba(255,183,3,0.2)}
+    .badge-submitted{background:rgba(167,139,250,0.15);color:var(--purple);border:1px solid rgba(167,139,250,0.2)}
+    .badge-underreview-task{background:rgba(255,183,3,0.15);color:var(--warning);border:1px solid rgba(255,183,3,0.2)}
+    .badge-revisionrequired{background:rgba(255,77,109,0.12);color:var(--danger);border:1px solid rgba(255,77,109,0.2)}
+    .badge-resubmitted{background:rgba(167,139,250,0.12);color:var(--purple);border:1px solid rgba(167,139,250,0.15)}
+    .badge-done{background:rgba(0,212,170,0.12);color:var(--success);border:1px solid rgba(0,212,170,0.2)}
+    .priority-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .p-critical .priority-dot{background:var(--danger)}
+    .p-high .priority-dot{background:var(--warning)}
+    .p-medium .priority-dot{background:var(--info)}
+    .p-low .priority-dot{background:var(--success)}
+
+    /* ── BUTTONS ── */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition);border:none;white-space:nowrap}
+    .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 16px var(--accent-glow)}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 24px var(--accent-glow)}
+    .btn-ghost{background:var(--glass);color:var(--text2);border:1px solid var(--glass-border)}
+    .btn-ghost:hover{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+    .btn-success{background:rgba(0,212,170,0.15);color:var(--success);border:1px solid rgba(0,212,170,0.2)}
+    .btn-success:hover{background:rgba(0,212,170,0.25)}
+    .btn-danger{background:rgba(255,77,109,0.12);color:var(--danger);border:1px solid rgba(255,77,109,0.2)}
+    .btn-danger:hover{background:rgba(255,77,109,0.2)}
+    .btn-warning{background:rgba(255,183,3,0.12);color:var(--warning);border:1px solid rgba(255,183,3,0.2)}
+    .btn-warning:hover{background:rgba(255,183,3,0.22)}
+    .btn-sm{padding:5px 12px;font-size:12px}
+    .btn:disabled{opacity:0.5;cursor:not-allowed;transform:none!important}
+
+    /* ── FILTER BAR ── */
+    .filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+    .search-box{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px 14px;flex:1;min-width:180px}
+    .search-box input{background:none;border:none;outline:none;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;flex:1}
+    .search-box input::placeholder{color:var(--text3)}
+    .filter-select{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;cursor:pointer}
+
+    /* ── MODAL ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity var(--transition);backdrop-filter:blur(6px)}
+    .modal-overlay.open{opacity:1;pointer-events:all}
+    .modal{background:var(--bg2);border:1px solid var(--glass-border);border-radius:20px;width:90vw;max-height:90vh;overflow-y:auto;box-shadow:0 40px 120px rgba(0,0,0,0.8);transform:translateY(20px) scale(0.97);transition:transform 0.3s cubic-bezier(0.16,1,0.3,1)}
+    .modal-overlay.open .modal{transform:none}
+    .modal-header{display:flex;align-items:center;justify-content:space-between;padding:22px 26px 18px;border-bottom:1px solid var(--glass-border);position:sticky;top:0;background:var(--bg2);z-index:1}
+    .modal-title{font-size:17px;font-weight:700}
+    .modal-close{cursor:pointer;color:var(--text3);font-size:20px;line-height:1;padding:4px;transition:color var(--transition)}
+    .modal-close:hover{color:var(--danger)}
+    .modal-body{padding:22px 26px}
+    .modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:16px 26px 22px;border-top:1px solid var(--glass-border)}
+    .modal-tabs{display:flex;border-bottom:1px solid var(--glass-border);padding:0 26px;gap:0}
+    .modal-tab{padding:12px 18px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);transition:all var(--transition)}
+    .modal-tab.active{border-bottom-color:var(--accent);color:var(--accent)}
+    .tab-panel{display:none;padding:20px 26px}
+    .tab-panel.active{display:block}
+
+    /* ── FORM ── */
+    .form-group{margin-bottom:16px}
+    .form-label{display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:7px}
+    .form-input,.form-select,.form-textarea{width:100%;background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color var(--transition),box-shadow var(--transition)}
+    .form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+    .form-textarea{resize:vertical;min-height:80px;line-height:1.6}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+    .form-hint{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5}
+
+    /* ── KANBAN ── */
+    .kanban-board{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;min-height:500px}
+    .kanban-col{flex:0 0 220px;background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);display:flex;flex-direction:column}
+    .kanban-col-header{padding:14px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:8px}
+    .kanban-col-dot{width:8px;height:8px;border-radius:50%}
+    .col-assigned .kanban-col-dot{background:var(--info)}
+    .col-accepted .kanban-col-dot{background:var(--accent)}
+    .col-inprogress .kanban-col-dot{background:var(--warning)}
+    .col-submitted .kanban-col-dot{background:var(--purple)}
+    .col-underreview .kanban-col-dot{background:var(--warning)}
+    .col-revisionrequired .kanban-col-dot{background:var(--danger)}
+    .col-completed .kanban-col-dot{background:var(--success)}
+    .kanban-col-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;flex:1}
+    .kanban-col-count{background:var(--bg4);color:var(--text2);font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+    .kanban-tasks{flex:1;padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:100px}
+    .kanban-tasks.drag-over{background:var(--accent-dim);border-radius:var(--radius-sm)}
+    .task-card{background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;cursor:pointer;transition:all var(--transition);position:relative}
+    .task-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.4)}
+    .task-card-actions{position:absolute;top:8px;right:8px;display:none;gap:4px}
+    .task-card:hover .task-card-actions{display:flex}
+    .icon-btn{width:26px;height:26px;border-radius:6px;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:background var(--transition)}
+    .icon-btn:hover{background:var(--accent-dim)}
+    .task-card-title{font-size:13px;font-weight:600;margin-bottom:8px;padding-right:50px;line-height:1.4}
+    .task-card-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+    .task-card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+    .tag{background:var(--accent-dim);color:var(--accent2);font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px}
+    .priority-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px}
+    .p-badge-critical{background:rgba(255,77,109,0.2);color:var(--danger)}
+    .p-badge-high{background:rgba(255,183,3,0.2);color:var(--warning)}
+    .p-badge-medium{background:rgba(56,189,248,0.15);color:var(--info)}
+    .p-badge-low{background:rgba(0,212,170,0.12);color:var(--success)}
+    .due-chip{font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:var(--bg4);color:var(--text2)}
+    .due-chip.overdue{background:rgba(255,77,109,0.15);color:var(--danger)}
+    .due-chip.soon{background:rgba(255,183,3,0.12);color:var(--warning)}
+    .assignee-chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg4);padding:2px 8px 2px 2px;border-radius:99px;font-size:11px}
+    .assignee-avatar{width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff}
+
+    /* ── PROJECT CARDS ── */
+    .project-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+    .project-card{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:all var(--transition)}
+    .project-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.4)}
+    .project-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+    .project-card-name{font-size:15px;font-weight:700}
+    .project-card-desc{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px}
+    .project-progress-bar{height:4px;background:var(--bg4);border-radius:99px;margin-bottom:10px}
+    .project-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width 0.6s ease}
+    .project-meta{display:flex;gap:14px;font-size:11px;color:var(--text2)}
+
+    /* ── SUBMISSION CARDS ── */
+    .submission-feed{display:flex;flex-direction:column;gap:12px}
+    .submission-card{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:all var(--transition);display:flex;align-items:center;gap:16px}
+    .submission-card:hover{border-color:var(--accent);box-shadow:0 6px 24px rgba(0,0,0,0.3)}
+    .sub-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;color:#fff}
+    .sub-info{flex:1}
+    .sub-name{font-size:14px;font-weight:700}
+    .sub-task{font-size:12px;color:var(--text2);margin-top:2px}
+    .sub-time{font-size:11px;color:var(--text3);margin-top:4px}
+    .sub-version{background:rgba(167,139,250,0.15);color:var(--purple);font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px}
+
+    /* ── REVIEW SCORES ── */
+    .score-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+    .score-item label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;display:flex;justify-content:space-between}
+    .score-slider{width:100%;-webkit-appearance:none;height:4px;border-radius:99px;background:var(--bg4);outline:none;cursor:pointer}
+    .score-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));cursor:pointer;box-shadow:0 0 8px var(--accent-glow)}
+    .overall-score-box{background:linear-gradient(135deg,var(--bg3),var(--bg4));border:1px solid var(--glass-border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:16px}
+    .overall-score-num{font-size:48px;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .overall-score-label{font-size:12px;color:var(--text2);margin-top:4px}
+
+    /* ── CALENDAR ── */
+    .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+    .cal-header-day{text-align:center;font-size:11px;font-weight:600;color:var(--text3);padding:8px 4px;text-transform:uppercase;letter-spacing:0.5px}
+    .cal-day{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px;min-height:80px;cursor:pointer;transition:all var(--transition)}
+    .cal-day:hover{border-color:var(--accent)}
+    .cal-day.today{border-color:var(--accent);background:var(--accent-dim)}
+    .cal-day.other-month{opacity:0.3}
+    .cal-day-num{font-size:12px;font-weight:600;margin-bottom:4px}
+    .cal-event{font-size:10px;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .cal-event.ev-task{background:rgba(108,99,255,0.2);color:var(--accent2)}
+    .cal-event.ev-project{background:rgba(0,212,170,0.2);color:var(--success)}
+    .cal-event.ev-overdue{background:rgba(255,77,109,0.2);color:var(--danger)}
+    .cal-nav{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+    .cal-month-title{font-size:17px;font-weight:700;flex:1}
+
+    /* ── ANALYTICS ── */
+    .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+    @media(max-width:960px){.chart-grid{grid-template-columns:1fr}}
+    .chart-card{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:22px;display:flex;flex-direction:column;justify-content:space-between;transition:transform var(--transition),box-shadow var(--transition);position:relative;overflow:hidden}
+    .chart-card:hover{border-color:rgba(108,99,255,0.3);box-shadow:0 12px 32px rgba(0,0,0,0.4)}
+    .chart-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .chart-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+    .chart-subtitle{font-size:11px;color:var(--text2);font-weight:400;margin-top:2px}
+    .chart-canvas-wrap{position:relative;height:240px;width:100%}
+    .metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;height:100%;align-content:center}
+    .metric-card{background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:16px;display:flex;flex-direction:column;justify-content:space-between;transition:all var(--transition);position:relative;overflow:hidden}
+    .metric-card:hover{background:var(--bg4);border-color:var(--accent-dim);transform:translateY(-2px)}
+    .metric-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .metric-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+    .metric-val{font-size:26px;font-weight:800;line-height:1.1;margin-bottom:4px}
+    .metric-lbl{font-size:11px;color:var(--text2);font-weight:600;letter-spacing:0.3px;text-transform:uppercase}
+    .metric-mini-bar{height:4px;background:var(--bg2);border-radius:99px;margin-top:8px;overflow:hidden}
+    .metric-mini-fill{height:100%;border-radius:99px}
+    .worker-perf-table{width:100%;border-collapse:collapse}
+    .worker-perf-table th{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:10px 14px;text-align:left;background:var(--bg3)}
+    .worker-perf-table td{padding:13px 14px;border-bottom:1px solid var(--glass-border);font-size:12px}
+    .score-bar{height:6px;background:var(--bg4);border-radius:99px;overflow:hidden;margin-top:4px}
+    .score-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--success))}
+
+    /* ── ATTACHMENTS & CLOUD FILES ── */
+    .attachment-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg4);border:1px solid var(--glass-border);border-radius:99px;padding:4px 12px;font-size:11px;color:var(--text);text-decoration:none;transition:all var(--transition)}
+    .attachment-chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);transform:translateY(-1px)}
+    .attachment-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+
+    /* ── ACTIVITY LOG ── */
+    .activity-feed{display:flex;flex-direction:column;gap:0}
+    .activity-item{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--glass-border);position:relative}
+    .activity-item:last-child{border-bottom:none}
+    .activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:6px}
+    .dot-created{background:var(--success)}
+    .dot-updated{background:var(--info)}
+    .dot-submitted{background:var(--purple)}
+    .dot-approved{background:var(--success)}
+    .dot-revision{background:var(--warning)}
+    .dot-rejected{background:var(--danger)}
+    .activity-text{font-size:13px;line-height:1.5;flex:1}
+    .activity-time{font-size:11px;color:var(--text3);flex-shrink:0;margin-top:2px}
+
+    /* ── SETTINGS ── */
+    .settings-grid{display:grid;grid-template-columns:220px 1fr;gap:20px}
+    .settings-nav{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:12px}
+    .settings-nav-item{padding:10px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:500;transition:all var(--transition)}
+    .settings-nav-item:hover{background:var(--glass);color:var(--accent)}
+    .settings-nav-item.active{background:var(--accent-dim);color:var(--accent)}
+    .settings-panel{display:none}
+    .settings-panel.active{display:block}
+    .settings-section{background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:24px;margin-bottom:16px}
+    .settings-section-title{font-size:14px;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--glass-border)}
+
+    /* ── NOTIF PANEL ── */
+    .notif-btn{position:relative;cursor:pointer;background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px 12px;font-size:18px;transition:all var(--transition)}
+    .notif-btn:hover{border-color:var(--accent);background:var(--accent-dim)}
+    .notif-count{position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:99px;min-width:18px;text-align:center;display:none}
+    .notif-count.show{display:block}
+    .notif-panel{position:absolute;right:0;top:44px;width:340px;background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);box-shadow:var(--shadow);z-index:400;display:none;overflow:hidden}
+    .notif-panel.open{display:block;animation:fadeIn 0.2s ease}
+    .notif-panel-header{padding:14px 18px;border-bottom:1px solid var(--glass-border);font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+    .notif-list{max-height:380px;overflow-y:auto}
+    .notif-item{padding:12px 18px;border-bottom:1px solid var(--glass-border);cursor:pointer;transition:background var(--transition);font-size:12px;line-height:1.5}
+    .notif-item:hover{background:var(--glass)}
+    .notif-item.unread{background:var(--accent-dim);border-left:3px solid var(--accent)}
+    .notif-time{font-size:10px;color:var(--text3);margin-top:3px}
+    .notif-empty{padding:28px;text-align:center;color:var(--text3);font-size:13px}
+
+    /* ── MISC ── */
+    .empty-state{text-align:center;padding:48px 20px;color:var(--text3)}
+    .empty-icon{font-size:40px;margin-bottom:12px}
+    .empty-state p{font-size:13px;line-height:1.6}
+    .toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+    .toast{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px 18px;font-size:13px;font-weight:500;box-shadow:var(--shadow);animation:toastIn 0.3s ease;min-width:220px}
+    @keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+    @keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(40px)}}
+    .toast.success{border-color:var(--success);color:var(--success)}
+    .toast.error{border-color:var(--danger);color:var(--danger)}
+    .toast.info{border-color:var(--info);color:var(--info)}
+    .revision-history{display:flex;flex-direction:column;gap:8px}
+    .revision-item{background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px 16px;font-size:12px}
+    .revision-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .checklist-builder{display:flex;flex-direction:column;gap:6px}
+    .checklist-item{display:flex;align-items:center;gap:8px;background:var(--bg4);border-radius:var(--radius-sm);padding:8px 12px}
+    .deliverable-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+    .info-note{background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px;font-size:12px;color:var(--text2);line-height:1.6;display:flex;gap:8px}
+    .tags-input-container{display:flex;flex-wrap:wrap;gap:6px;background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:8px;cursor:text;min-height:42px;align-items:center}
+    .tag-pill{display:inline-flex;align-items:center;gap:4px;background:var(--accent-dim);color:var(--accent2);font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px}
+    .tag-pill-remove{cursor:pointer;font-size:14px;line-height:1}
+    .tags-input{background:none;border:none;outline:none;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;flex:1;min-width:80px}
+    .resource-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+    .toggle-switch{display:flex;align-items:center;gap:10px;cursor:pointer}
+    .toggle-input{display:none}
+    .toggle-track{width:36px;height:20px;background:var(--bg4);border-radius:99px;position:relative;transition:background var(--transition);border:1px solid var(--glass-border)}
+    .toggle-input:checked+.toggle-track{background:var(--accent)}
+    .toggle-track::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:transform var(--transition)}
+    .toggle-input:checked+.toggle-track::after{transform:translateX(16px)}
+    .toggle-label{font-size:13px;font-weight:500}
+  
+    /* ── TROYZ SOLUTIONS WATERMARK ── */
+    .troyz-watermark {
+      position: fixed;
+      bottom: 16px;
+      right: 20px;
+      z-index: 9999;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(15, 15, 30, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 7px 16px;
+      border-radius: 99px;
+      backdrop-filter: blur(8px);
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      opacity: 0.85;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+    .troyz-watermark-icon {
+      font-size: 13px;
+    }
+    
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🏢</div>
+    <div class="logo-text-wrap">
+      <div class="logo-text">TaskFlow</div>
+      <div class="logo-sub">Troyz Solutions</div>
+    </div>
+    <div class="sidebar-toggle" id="sidebarToggle">‹</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" data-page="dashboard" id="nav-dashboard"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></div>
+    <div class="nav-item" data-page="kanban" id="nav-kanban"><span class="nav-icon">📊</span><span class="nav-label">Kanban Board</span></div>
+    <div class="nav-section">Work Management</div>
+    <div class="nav-item" data-page="applications" id="nav-applications"><span class="nav-icon">📋</span><span class="nav-label">Applications</span><span class="nav-badge" id="appsBadge" style="display:none">0</span></div>
+    <div class="nav-item" data-page="projects" id="nav-projects"><span class="nav-icon">📁</span><span class="nav-label">Projects</span></div>
+    <div class="nav-item" data-page="tasks" id="nav-tasks"><span class="nav-icon">📝</span><span class="nav-label">All Tasks</span></div>
+    <div class="nav-item" data-page="workers" id="nav-workers"><span class="nav-icon">👥</span><span class="nav-label">Workers</span></div>
+    <div class="nav-item" data-page="calendar" id="nav-calendar"><span class="nav-icon">📅</span><span class="nav-label">Calendar</span></div>
+    <div class="nav-section">Review</div>
+    <div class="nav-item" data-page="submissions" id="nav-submissions"><span class="nav-icon">📤</span><span class="nav-label">Submissions</span><span class="nav-badge" id="subsBadge" style="display:none">0</span></div>
+    <div class="nav-item" data-page="reviews" id="nav-reviews"><span class="nav-icon">🔍</span><span class="nav-label">Reviews</span></div>
+    <div class="nav-section">Insights</div>
+    <div class="nav-item" data-page="analytics" id="nav-analytics"><span class="nav-icon">📈</span><span class="nav-label">Analytics</span></div>
+    <div class="nav-item" data-page="activity" id="nav-activity"><span class="nav-icon">🕐</span><span class="nav-label">Activity Log</span></div>
+    <div class="nav-section">System</div>
+    <div class="nav-item" data-page="notifpage" id="nav-notifpage"><span class="nav-icon">🔔</span><span class="nav-label">Notifications</span><span class="nav-badge" id="notifNavBadge" style="display:none">0</span></div>
+    <div class="nav-item" data-page="settings" id="nav-settings"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar">A</div>
+    <div class="sidebar-user-info">
+      <div class="user-name">Admin</div>
+      <div class="user-role">Administrator</div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main id="main">
+  <div class="topbar">
+    <div class="topbar-title">
+      <h1 id="pageTitle">Dashboard</h1>
+      <p id="pageSubtitle">Welcome back, Admin. Here's what needs your attention.</p>
+    </div>
+    <div class="topbar-actions" style="position:relative;">
+      <button class="btn btn-primary" id="newTaskBtn">＋ New Task</button>
+      <div class="notif-btn" id="notifBtn" title="Notifications">🔔<span class="notif-count" id="notifCount"></span></div>
+      <div class="notif-panel" id="notifPanel">
+        <div class="notif-panel-header"><span>Notifications</span><span style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="markAllNotifRead()">Mark all read</span></div>
+        <div class="notif-list" id="notifList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats-grid" id="statsGrid"></div>
+    <div id="attentionPanel"></div>
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;">
+      <div>
+        <div class="section-header"><div><div class="section-title">Recent Tasks</div><div class="section-sub">Latest task activity across all projects</div></div><button class="btn btn-ghost btn-sm" onclick="navigate('tasks')">View All →</button></div>
+        <div class="table-wrap" id="recentTasksTable"></div>
+      </div>
+      <div>
+        <div class="section-header" style="margin-bottom:12px;"><div class="section-title">Recent Activity</div></div>
+        <div style="background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:16px;max-height:380px;overflow-y:auto;" id="dashActivityFeed"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATIONS -->
+  <div class="page" id="page-applications">
+    <div class="filter-bar">
+      <div class="search-box"><span>🔍</span><input type="text" id="appSearch" placeholder="Search applicants…" oninput="renderApplications()"/></div>
+      <select class="filter-select" id="appFilterStatus" onchange="renderApplications()">
+        <option value="">All Statuses</option>
+        <option value="new">New</option>
+        <option value="underreview">Under Review</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <button class="btn btn-primary" onclick="openAddAppModal()">＋ Add Application</button>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Applicant</th><th>College</th><th>Course</th><th>Skills</th><th>Applied</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="appTableBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- PROJECTS -->
+  <div class="page" id="page-projects">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div class="search-box" style="max-width:320px;"><span>🔍</span><input type="text" id="projSearch" placeholder="Search projects…" oninput="renderProjects()"/></div>
+      <button class="btn btn-primary" onclick="openAddProjectModal()">＋ New Project</button>
+    </div>
+    <div class="project-grid" id="projectGrid"></div>
+  </div>
+
+  <!-- ALL TASKS -->
+  <div class="page" id="page-tasks">
+    <div class="filter-bar">
+      <div class="search-box" style="flex:2"><span>🔍</span><input type="text" id="taskSearch" placeholder="Search tasks…" oninput="renderTaskTable()"/></div>
+      <select class="filter-select" id="taskFilterStatus" onchange="renderTaskTable()">
+        <option value="">All Statuses</option>
+        <option value="assigned">Assigned</option><option value="accepted">Accepted</option>
+        <option value="inprogress">In Progress</option><option value="submitted">Submitted</option>
+        <option value="underreview">Under Review</option><option value="revisionrequired">Revision Required</option>
+        <option value="resubmitted">Resubmitted</option><option value="approved">Approved</option><option value="completed">Completed</option>
+      </select>
+      <select class="filter-select" id="taskFilterPriority" onchange="renderTaskTable()">
+        <option value="">All Priorities</option>
+        <option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+      </select>
+      <select class="filter-select" id="taskFilterWorker" onchange="renderTaskTable()"><option value="">All Workers</option></select>
+      <select class="filter-select" id="taskFilterProject" onchange="renderTaskTable()"><option value="">All Projects</option></select>
+      <button class="btn btn-ghost btn-sm" onclick="exportTasksCSV()">⬇ Export</button>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Task</th><th>Project</th><th>Worker</th><th>Priority</th><th>Progress</th><th>Submission</th><th>Status</th><th>Due</th><th>Actions</th></tr></thead>
+      <tbody id="taskTableBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- WORKERS -->
+  <div class="page" id="page-workers">
+    <div class="filter-bar">
+      <div class="search-box"><span>🔍</span><input type="text" id="workerSearch" placeholder="Search workers…" oninput="renderWorkers()"/></div>
+      <select class="filter-select" id="workerFilterStatus" onchange="renderWorkers()">
+        <option value="">All Statuses</option>
+        <option value="invited">Invited</option><option value="active">Active</option>
+        <option value="inactive">Inactive</option><option value="suspended">Suspended</option><option value="completed">Completed</option>
+      </select>
+      <button class="btn btn-primary" onclick="openAddWorkerModal()">＋ Invite Worker</button>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Worker</th><th>Role</th><th>Team</th><th>Status</th><th>Active</th><th>Reviews</th><th>Done</th><th>On-time %</th><th>Login ID</th><th>Actions</th></tr></thead>
+      <tbody id="workerTableBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="page" id="page-calendar">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div class="cal-nav" style="flex:1;">
+        <button class="btn btn-ghost btn-sm" onclick="calPrev()">‹ Prev</button>
+        <div class="cal-month-title" id="calTitle"></div>
+        <button class="btn btn-ghost btn-sm" onclick="calNext()">Next ›</button>
+      </div>
+      <div style="display:flex;gap:8px;font-size:11px;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:rgba(108,99,255,0.4);display:inline-block;"></span>Task</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:rgba(0,212,170,0.4);display:inline-block;"></span>Project</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:rgba(255,77,109,0.4);display:inline-block;"></span>Overdue</span>
+      </div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:16px;">
+      <div class="calendar-grid" style="margin-bottom:8px;">
+        <div class="cal-header-day">Sun</div><div class="cal-header-day">Mon</div><div class="cal-header-day">Tue</div>
+        <div class="cal-header-day">Wed</div><div class="cal-header-day">Thu</div><div class="cal-header-day">Fri</div><div class="cal-header-day">Sat</div>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+  </div>
+
+  <!-- SUBMISSIONS -->
+  <div class="page" id="page-submissions">
+    <div class="filter-bar">
+      <div class="search-box"><span>🔍</span><input type="text" id="subSearch" placeholder="Search submissions…" oninput="renderSubmissions()"/></div>
+      <select class="filter-select" id="subFilterStatus" onchange="renderSubmissions()">
+        <option value="">All</option><option value="pending">Pending Review</option>
+        <option value="approved">Approved</option><option value="revision">Revision Requested</option>
+      </select>
+    </div>
+    <div class="submission-feed" id="submissionFeed"></div>
+  </div>
+
+  <!-- REVIEWS -->
+  <div class="page" id="page-reviews">
+    <div class="table-wrap">
+      <table><thead><tr><th>Task</th><th>Worker</th><th>Project</th><th>Version</th><th>Score</th><th>Status</th><th>Reviewed</th><th>Actions</th></tr></thead>
+      <tbody id="reviewTableBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- KANBAN -->
+  <div class="page" id="page-kanban">
+    <div class="filter-bar" style="margin-bottom:16px;">
+      <div class="search-box"><span>🔍</span><input type="text" id="kanbanSearch" placeholder="Search tasks…" oninput="renderKanban()"/></div>
+      <select class="filter-select" id="kanbanFilterPriority" onchange="renderKanban()"><option value="">All Priorities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+      <select class="filter-select" id="kanbanFilterWorker" onchange="renderKanban()"><option value="">All Workers</option></select>
+      <select class="filter-select" id="kanbanFilterProject" onchange="renderKanban()"><option value="">All Projects</option></select>
+    </div>
+    <div class="kanban-board" id="kanbanBoard"></div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div class="page" id="page-analytics">
+    <div class="chart-grid" id="chartGrid"></div>
+    <div style="background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:20px;">
+      <div class="section-header" style="margin-bottom:14px;"><div class="section-title">👤 Worker Performance</div></div>
+      <table class="worker-perf-table" id="workerPerfTable"></table>
+    </div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div class="page" id="page-activity">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+      <button class="btn btn-ghost btn-sm" onclick="clearActivity()">🗑 Clear Log</button>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);padding:20px;">
+      <div class="activity-feed" id="activityFeed"></div>
+    </div>
+  </div>
+
+  <!-- NOTIFICATIONS PAGE -->
+  <div class="page" id="page-notifpage">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px;gap:10px;">
+      <button class="btn btn-ghost btn-sm" onclick="markAllNotifRead()">✓ Mark All Read</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearNotifications()">🗑 Clear All</button>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--glass-border);border-radius:var(--radius);overflow:hidden;" id="notifPageList"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="page" id="page-settings">
+    <div class="settings-grid">
+      <div class="settings-nav">
+        <div class="settings-nav-item active" onclick="switchSettingsTab('org',this)">🏢 Organization</div>
+        <div class="settings-nav-item" onclick="switchSettingsTab('cloud',this)">☁️ Cloud Sync</div>
+        <div class="settings-nav-item" onclick="switchSettingsTab('task',this)">📋 Task Settings</div>
+        <div class="settings-nav-item" onclick="switchSettingsTab('team',this)">👥 Roles & Teams</div>
+        <div class="settings-nav-item" onclick="switchSettingsTab('notif',this)">🔔 Notifications</div>
+      </div>
+      <div>
+        <div class="settings-panel active" id="settings-org">
+          <div class="settings-section">
+            <div class="settings-section-title">Organization Info</div>
+            <div class="form-row"><div class="form-group"><label class="form-label">Organization Name</label><input class="form-input" id="sOrgName" placeholder="e.g. TechCorp Internship Program"/></div><div class="form-group"><label class="form-label">Admin Email</label><input class="form-input" id="sOrgEmail" placeholder="admin@company.com"/></div></div>
+            <div class="form-row"><div class="form-group"><label class="form-label">Timezone</label><select class="form-select" id="sTimezone"><option>Asia/Kolkata (IST)</option><option>UTC</option><option>America/New_York (EST)</option><option>Europe/London (GMT)</option></select></div><div class="form-group"><label class="form-label">Platform Name</label><input class="form-input" id="sPlatformName" placeholder="TaskFlow"/></div></div>
+            <button class="btn btn-primary" onclick="saveOrgSettings()">💾 Save Settings</button>
+          </div>
+        </div>
+        <div class="settings-panel" id="settings-cloud">
+          <div class="settings-section">
+            <div class="settings-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>☁️ Firebase Cloud Database Sync</span>
+              <span id="cloudStatusBadge" class="badge badge-underreview">🟡 Local Storage Mode</span>
+            </div>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.5;">
+              Connect your TaskFlow dashboard to a free Firebase Cloud Firestore database to enable real-time synchronization between Admin and Workers across any device or browser anywhere in the world!
+            </p>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">API Key (apiKey) *</label><input class="form-input" id="fbApiKey" placeholder="AIzaSy..."/></div>
+              <div class="form-group"><label class="form-label">Auth Domain (authDomain)</label><input class="form-input" id="fbAuthDomain" placeholder="my-taskflow.firebaseapp.com"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Project ID (projectId) *</label><input class="form-input" id="fbProjectId" placeholder="my-taskflow-1234"/></div>
+              <div class="form-group"><label class="form-label">Storage Bucket (storageBucket)</label><input class="form-input" id="fbStorageBucket" placeholder="my-taskflow-1234.appspot.com"/></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Messaging Sender ID</label><input class="form-input" id="fbSenderId" placeholder="1234567890"/></div>
+              <div class="form-group"><label class="form-label">App ID (appId)</label><input class="form-input" id="fbAppId" placeholder="1:1234567890:web:abc123def"/></div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="saveCloudConfig()">⚡ Save &amp; Connect Firebase Cloud</button>
+              <button class="btn btn-ghost" onclick="syncLocalToCloud()">📤 Push Local Data to Cloud</button>
+              <button class="btn btn-danger btn-sm" onclick="disconnectCloud()">Disconnect</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">📖 Quick 2-Minute Setup Guide</div>
+            <ol style="font-size:12px;color:var(--text2);line-height:1.9;padding-left:18px;">
+              <li>Go to <a href="https://console.firebase.google.com/" target="_blank" style="color:var(--accent);font-weight:600;">console.firebase.google.com</a> and click <strong>Create a project</strong>.</li>
+              <li>Under <strong>Build ➔ Firestore Database</strong>, click <strong>Create database</strong> (Start in Test mode).</li>
+              <li>Go to <strong>Project Settings ⚙️ ➔ General ➔ Your apps</strong>, click the <strong>Web (&lt;/&gt;)</strong> icon to register a Web App.</li>
+              <li>Copy the 6 config keys shown in <code style="color:var(--accent);">const firebaseConfig = { ... }</code> and paste them in the fields above!</li>
+            </ol>
+          </div>
+        </div>
+        <div class="settings-panel" id="settings-task">
+          <div class="settings-section">
+            <div class="settings-section-title">Task Priorities</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <span class="badge badge-rejected">🔴 Critical</span><span class="badge badge-underreview">🟠 High</span><span class="badge badge-new">🔵 Medium</span><span class="badge badge-approved">🟢 Low</span>
+            </div>
+            <p style="font-size:12px;color:var(--text3);margin-top:10px;">Priority levels are system-defined and used across all tasks.</p>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Task Workflow</div>
+            <div style="font-size:12px;color:var(--text2);line-height:2;font-family:monospace;">Assigned → Accepted → In Progress → Submitted → Under Review → Approved → Completed<br>Under Review → Revision Required → Resubmitted → Under Review (loop)</div>
+          </div>
+        </div>
+        <div class="settings-panel" id="settings-team">
+          <div class="settings-section">
+            <div class="settings-section-title">Departments / Teams</div>
+            <div id="deptList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;"><input class="form-input" id="newDeptInput" placeholder="Add department…" style="flex:1;" onkeydown="if(event.key==='Enter')addDept()"/><button class="btn btn-primary btn-sm" onclick="addDept()">Add</button></div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Roles</div>
+            <div id="roleList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;"><input class="form-input" id="newRoleInput" placeholder="Add role…" style="flex:1;" onkeydown="if(event.key==='Enter')addRole()"/><button class="btn btn-primary btn-sm" onclick="addRole()">Add</button></div>
+          </div>
+        </div>
+        <div class="settings-panel" id="settings-notif">
+          <div class="settings-section">
+            <div class="settings-section-title">Notification Preferences</div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <label class="toggle-switch"><input type="checkbox" class="toggle-input" checked id="nNew"><div class="toggle-track"></div><span class="toggle-label">New application submitted</span></label>
+              <label class="toggle-switch"><input type="checkbox" class="toggle-input" checked id="nSub"><div class="toggle-track"></div><span class="toggle-label">Worker submitted a task</span></label>
+              <label class="toggle-switch"><input type="checkbox" class="toggle-input" checked id="nRev"><div class="toggle-track"></div><span class="toggle-label">Resubmission received</span></label>
+              <label class="toggle-switch"><input type="checkbox" class="toggle-input" checked id="nOvd"><div class="toggle-track"></div><span class="toggle-label">Task overdue alert</span></label>
+              <label class="toggle-switch"><input type="checkbox" class="toggle-input" id="nDl"><div class="toggle-track"></div><span class="toggle-label">Project deadline approaching (7 days)</span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════ MODALS ═══════════ -->
+
+<!-- CREATE/EDIT TASK MODAL -->
+<div class="modal-overlay" id="taskModal">
+  <div class="modal" style="max-width:780px;">
+    <div class="modal-header">
+      <div class="modal-title" id="taskModalTitle">Create Task</div>
+      <div class="modal-close" onclick="closeTaskModal()">✕</div>
+    </div>
+    <div class="modal-tabs">
+      <div class="modal-tab active" onclick="switchTaskTab(0,this)">📋 Basic</div>
+      <div class="modal-tab" onclick="switchTaskTab(1,this)">📄 Instructions</div>
+      <div class="modal-tab" onclick="switchTaskTab(2,this)">📦 Deliverables</div>
+      <div class="modal-tab" onclick="switchTaskTab(3,this)">✅ Criteria</div>
+      <div class="modal-tab" onclick="switchTaskTab(4,this)">🔗 Resources</div>
+      <div class="modal-tab" onclick="switchTaskTab(5,this)">⚙️ Workflow</div>
+    </div>
+    <!-- Tab 0: Basic -->
+    <div class="tab-panel active" id="ttab-0">
+      <div class="form-row"><div class="form-group"><label class="form-label">Task Title *</label><input class="form-input" id="fTitle" placeholder="What needs to be done?"/></div><div class="form-group"><label class="form-label">Project</label><select class="form-select" id="fProject"><option value="">No Project</option></select></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Assign To *</label><select class="form-select" id="fAssignee"><option value="">Select worker…</option></select></div><div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="fPriority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="critical">Critical</option></select></div></div>
+      <div class="form-row-3"><div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="fStartDate"/></div><div class="form-group"><label class="form-label">Due Date</label><input type="date" class="form-input" id="fDue"/></div><div class="form-group"><label class="form-label">Est. Hours</label><input type="number" class="form-input" id="fHours" placeholder="e.g. 8" min="0"/></div></div>
+      <div class="form-group"><label class="form-label">Tags (press Enter)</label><div class="tags-input-container" id="tagsContainer"><input type="text" class="tags-input" id="tagInput" placeholder="Add tag…"/></div></div>
+    </div>
+    <!-- Tab 1: Instructions -->
+    <div class="tab-panel" id="ttab-1">
+      <div class="form-group"><label class="form-label">Objective</label><input class="form-input" id="fObjective" placeholder="What is the goal of this task?"/></div>
+      <div class="form-group"><label class="form-label">Detailed Instructions</label><textarea class="form-textarea" id="fInstructions" style="min-height:180px;" placeholder="Step-by-step instructions for the worker…"></textarea></div>
+    </div>
+    <!-- Tab 2: Deliverables -->
+    <div class="tab-panel" id="ttab-2">
+      <div class="form-hint" style="margin-bottom:12px;">What must the worker submit when completing this task?</div>
+      <div id="deliverablesList"></div>
+      <button class="btn btn-ghost btn-sm" onclick="addDeliverable()">＋ Add Deliverable</button>
+    </div>
+    <!-- Tab 3: Acceptance Criteria -->
+    <div class="tab-panel" id="ttab-3">
+      <div class="form-hint" style="margin-bottom:12px;">Define what "done" looks like for this task. Workers see these as a checklist.</div>
+      <div class="checklist-builder" id="criteriaList"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addCriteria()">＋ Add Criterion</button>
+    </div>
+    <!-- Tab 4: Resources -->
+    <div class="tab-panel" id="ttab-4">
+      <div class="form-hint" style="margin-bottom:12px;">Attach links, documents, or references the worker needs.</div>
+      <div id="resourcesList"></div>
+      <button class="btn btn-ghost btn-sm" onclick="addResource()">＋ Add Resource</button>
+    </div>
+    <!-- Tab 5: Workflow -->
+    <div class="tab-panel" id="ttab-5">
+      <div class="form-row"><div class="form-group"><label class="form-label">Initial Status</label><select class="form-select" id="fStatus"><option value="assigned">Assigned</option><option value="inprogress">In Progress</option></select></div><div class="form-group"><label class="form-label">Deadline (hard)</label><input type="date" class="form-input" id="fDeadline"/></div></div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:10px;">
+        <label class="toggle-switch"><input type="checkbox" class="toggle-input" id="fSubRequired" checked><div class="toggle-track"></div><span class="toggle-label">Submission Required (worker must submit work)</span></label>
+        <label class="toggle-switch"><input type="checkbox" class="toggle-input" id="fRevRequired" checked><div class="toggle-track"></div><span class="toggle-label">Review Required (admin must approve submission)</span></label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeTaskModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()">💾 Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASK DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <div class="modal-title" id="detailTitle">Task Details</div>
+      <div class="modal-close" onclick="closeDetailModal()">✕</div>
+    </div>
+    <div id="detailBody" class="modal-body"></div>
+    <div class="modal-footer" id="detailFooter"></div>
+  </div>
+</div>
+
+<!-- ADD WORKER MODAL (Invite Flow) -->
+<div class="modal-overlay" id="workerModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title">👤 Invite Worker</div>
+      <div class="modal-close" onclick="closeWorkerModal()">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-row"><div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="wName" placeholder="Worker's full name"/></div><div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input" id="wEmail" placeholder="worker@example.com"/></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Role *</label><input class="form-input" id="wRole" placeholder="e.g. Frontend Developer"/></div><div class="form-group"><label class="form-label">Department/Team</label><input class="form-input" id="wTeam" placeholder="e.g. Design Team"/></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="wStartDate"/></div><div class="form-group"></div></div>
+      <div class="info-note"><span>ℹ️</span><span>A <strong>Login ID</strong> and <strong>temporary password</strong> will be generated automatically and shown to you once. Share these credentials with the worker — they can then log in to the Worker Panel.</span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeWorkerModal()">Cancel</button>
+      <button class="btn btn-primary" id="inviteWorkerBtn" onclick="inviteWorker()">📨 Generate Credentials</button>
+    </div>
+  </div>
+</div>
+
+<!-- WORKER CREDENTIALS MODAL (shown after invite) -->
+<div class="modal-overlay" id="credModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">🔐 Worker Credentials</div>
+      <div class="modal-close" onclick="document.getElementById('credModal').classList.remove('open')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="info-note" style="margin-bottom:16px;"><span>⚠️</span><span>Share these credentials with the worker. This password is shown <strong>only once</strong>.</span></div>
+      <div class="settings-section" style="margin-bottom:0;">
+        <div class="form-group"><label class="form-label">Login ID</label><div style="display:flex;gap:8px;"><input class="form-input" id="credLoginId" readonly/><button class="btn btn-ghost btn-sm" onclick="copyField('credLoginId')">Copy</button></div></div>
+        <div class="form-group"><label class="form-label">Temporary Password</label><div style="display:flex;gap:8px;"><input class="form-input" id="credPassword" readonly/><button class="btn btn-ghost btn-sm" onclick="copyField('credPassword')">Copy</button></div></div>
+        <div class="form-group"><label class="form-label">Worker Name</label><input class="form-input" id="credName" readonly/></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="document.getElementById('credModal').classList.remove('open')">✓ I've shared these credentials</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET PASSWORD MODAL -->
+<div class="modal-overlay" id="resetPwdModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header"><div class="modal-title">🔑 Reset Password</div><div class="modal-close" onclick="closeResetPwdModal()">✕</div></div>
+    <div class="modal-body">
+      <div id="resetPwdWorkerInfo" style="background:var(--bg3);border:1px solid var(--glass-border);border-radius:8px;padding:12px;font-size:13px;margin-bottom:16px;"></div>
+      <div class="form-group"><label class="form-label">New Password *</label><div style="position:relative;"><input type="password" class="form-input" id="resetNewPwd" placeholder="New password…" style="padding-right:44px;"/><span onclick="togglePwd('resetNewPwd',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;color:var(--text3);">👁</span></div></div>
+      <div class="form-group"><label class="form-label">Confirm *</label><input type="password" class="form-input" id="resetNewPwd2" placeholder="Confirm…"/></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeResetPwdModal()">Cancel</button><button class="btn btn-primary" id="resetPwdBtn" onclick="doResetPassword()">🔑 Reset</button></div>
+  </div>
+</div>
+
+<!-- APPLICATION DETAIL MODAL -->
+<div class="modal-overlay" id="appDetailModal">
+  <div class="modal" style="max-width:660px;">
+    <div class="modal-header"><div class="modal-title" id="appDetailTitle">Applicant Details</div><div class="modal-close" onclick="closeAppDetailModal()">✕</div></div>
+    <div class="modal-tabs">
+      <div class="modal-tab active" onclick="switchTab('appDetail',0,this)">👤 Profile</div>
+      <div class="modal-tab" onclick="switchTab('appDetail',1,this)">🎓 Education</div>
+      <div class="modal-tab" onclick="switchTab('appDetail',2,this)">💼 Internship</div>
+      <div class="modal-tab" onclick="switchTab('appDetail',3,this)">📝 Notes</div>
+    </div>
+    <div class="tab-panel active" id="appDetail-0"><div id="appProfileContent"></div></div>
+    <div class="tab-panel" id="appDetail-1"><div id="appEduContent"></div></div>
+    <div class="tab-panel" id="appDetail-2"><div id="appInternContent"></div></div>
+    <div class="tab-panel" id="appDetail-3"><div id="appNotesContent"></div></div>
+    <div class="modal-footer" id="appDetailFooter"></div>
+  </div>
+</div>
+
+<!-- ADD APPLICATION MODAL -->
+<div class="modal-overlay" id="addAppModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header"><div class="modal-title">📋 Add Application</div><div class="modal-close" onclick="document.getElementById('addAppModal').classList.remove('open')">✕</div></div>
+    <div class="modal-body">
+      <div class="form-row"><div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="aName" placeholder="Applicant's name"/></div><div class="form-group"><label class="form-label">Email *</label><input type="email" class="form-input" id="aEmail" placeholder="email@example.com"/></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">College / University</label><input class="form-input" id="aCollege" placeholder="College name"/></div><div class="form-group"><label class="form-label">Course / Degree</label><input class="form-input" id="aCourse" placeholder="e.g. B.Tech CSE"/></div></div>
+      <div class="form-group"><label class="form-label">Skills (comma-separated)</label><input class="form-input" id="aSkills" placeholder="e.g. React, Python, Figma"/></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">GitHub</label><input class="form-input" id="aGithub" placeholder="github.com/username"/></div><div class="form-group"><label class="form-label">LinkedIn</label><input class="form-input" id="aLinkedin" placeholder="linkedin.com/in/username"/></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Portfolio</label><input class="form-input" id="aPortfolio" placeholder="Portfolio URL"/></div><div class="form-group"><label class="form-label">Internship Interest</label><input class="form-input" id="aInterest" placeholder="e.g. Frontend Development"/></div></div>
+      <div class="form-group"><label class="form-label">Availability</label><input class="form-input" id="aAvailability" placeholder="e.g. Full-time, 3 months from June"/></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById('addAppModal').classList.remove('open')">Cancel</button><button class="btn btn-primary" onclick="saveApplication()">📋 Submit Application</button></div>
+  </div>
+</div>
+
+<!-- CONVERT TO WORKER MODAL -->
+<div class="modal-overlay" id="convertModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header"><div class="modal-title">✅ Convert to Worker</div><div class="modal-close" onclick="document.getElementById('convertModal').classList.remove('open')">✕</div></div>
+    <div class="modal-body">
+      <div class="info-note" style="margin-bottom:16px;"><span>🎉</span><span>Approving this applicant will create a <strong>Worker account</strong> for them with login credentials.</span></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="cvName" readonly/></div><div class="form-group"><label class="form-label">Email</label><input class="form-input" id="cvEmail" readonly/></div></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Role *</label><input class="form-input" id="cvRole" placeholder="e.g. Frontend Developer"/></div><div class="form-group"><label class="form-label">Team / Department</label><input class="form-input" id="cvTeam" placeholder="e.g. Design Team"/></div></div>
+      <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="cvStartDate"/></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById('convertModal').classList.remove('open')">Cancel</button><button class="btn btn-primary" id="convertBtn" onclick="doConvertToWorker()">✅ Approve &amp; Create Worker</button></div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-overlay" id="projectModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header"><div class="modal-title" id="projModalTitle">📁 New Project</div><div class="modal-close" onclick="document.getElementById('projectModal').classList.remove('open')">✕</div></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Project Name *</label><input class="form-input" id="pName" placeholder="e.g. AI Receptionist"/></div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="pDesc" placeholder="What is this project about?"></textarea></div>
+      <div class="form-row"><div class="form-group"><label class="form-label">Deadline</label><input type="date" class="form-input" id="pDeadline"/></div><div class="form-group"><label class="form-label">Status</label><select class="form-select" id="pStatus"><option value="active">Active</option><option value="paused">Paused</option><option value="completed">Completed</option><option value="archived">Archived</option></select></div></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById('projectModal').classList.remove('open')">Cancel</button><button class="btn btn-primary" onclick="saveProject()">💾 Save Project</button></div>
+  </div>
+</div>
+
+<!-- SUBMISSION REVIEW MODAL -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-header"><div class="modal-title" id="reviewModalTitle">📋 Review Submission</div><div class="modal-close" onclick="closeReviewModal()">✕</div></div>
+    <div class="modal-tabs">
+      <div class="modal-tab active" onclick="switchTab('reviewTab',0,this)">📄 Submission</div>
+      <div class="modal-tab" onclick="switchTab('reviewTab',1,this)">🔍 Score &amp; Review</div>
+      <div class="modal-tab" onclick="switchTab('reviewTab',2,this)">🔁 History</div>
+    </div>
+    <div class="tab-panel active" id="reviewTab-0"><div id="reviewSubContent"></div></div>
+    <div class="tab-panel" id="reviewTab-1">
+      <div class="overall-score-box"><div class="overall-score-num" id="overallScoreDisplay">—</div><div class="overall-score-label">Overall Score / 100</div></div>
+      <div class="score-grid" id="scoreGrid"></div>
+      <div class="form-group"><label class="form-label">Feedback to Worker</label><textarea class="form-textarea" id="reviewFeedback" style="min-height:100px;" placeholder="Provide constructive feedback…"></textarea></div>
+    </div>
+    <div class="tab-panel" id="reviewTab-2"><div id="reviewHistoryContent"></div></div>
+    <div class="modal-footer" id="reviewModalFooter"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  STORAGE
+// ═══════════════════════════════════════════
+const STORAGE_KEY='taskflow_data';
+function getData(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||emptyStore();}catch{return emptyStore();}}
+function setData(d){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(d));
+  if(window.TaskFlowCloud && window.TaskFlowCloud.isCloudActive){
+    window.TaskFlowCloud.pushToCloud(d);
+  }
+}
+function emptyStore(){return{tasks:[],workers:[],projects:[],applications:[],activity:[],notifications:[]};}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+function now(){return new Date().toISOString();}
+function fmtDate(iso){if(!iso)return'—';const d=new Date(iso);if(isNaN(d))return iso;return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function fmtTime(iso){if(!iso)return'';return new Date(iso).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
+function fmtAgo(iso){if(!iso)return'';const diff=(Date.now()-new Date(iso))/1000;if(diff<60)return'just now';if(diff<3600)return Math.floor(diff/60)+'m ago';if(diff<86400)return Math.floor(diff/3600)+'h ago';return fmtDate(iso);}
+function daysUntil(d){if(!d)return null;return Math.ceil((new Date(d)-new Date(new Date().toDateString()))/86400000);}
+function isOverdue(dueDate,status){if(!dueDate||status==='completed'||status==='approved')return false;return new Date(dueDate)<new Date(new Date().toDateString());}
+function getWeekStart(){const d=new Date();d.setDate(d.getDate()-d.getDay());d.setHours(0,0,0,0);return d;}
+
+// ═══════════════════════════════════════════
+//  ACTIVITY & NOTIFICATIONS
+// ═══════════════════════════════════════════
+function addActivity(action,type='updated'){
+  const d=getData();
+  d.activity.unshift({id:uid(),action,type,at:now()});
+  if(d.activity.length>200)d.activity=d.activity.slice(0,200);
+  setData(d);
+}
+function addNotification(msg,type='info'){
+  const d=getData();
+  d.notifications.unshift({id:uid(),msg,type,read:false,at:now()});
+  setData(d);renderNotifBadge();
+}
+function renderNotifBadge(){
+  const d=getData();
+  const unread=d.notifications.filter(n=>!n.read).length;
+  const el=document.getElementById('notifCount');
+  const nb=document.getElementById('notifNavBadge');
+  if(unread>0){el.textContent=unread;el.classList.add('show');if(nb){nb.textContent=unread;nb.style.display='';}}
+  else{el.classList.remove('show');if(nb)nb.style.display='none';}
+  // Apps badge
+  const newApps=d.applications.filter(a=>a.status==='new').length;
+  const ab=document.getElementById('appsBadge');
+  if(ab){if(newApps>0){ab.textContent=newApps;ab.style.display='';}else{ab.style.display='none';}}
+  // Subs badge
+  const pendingSubs=d.tasks.filter(t=>t.status==='submitted'||t.status==='resubmitted').length;
+  const sb=document.getElementById('subsBadge');
+  if(sb){if(pendingSubs>0){sb.textContent=pendingSubs;sb.style.display='';}else{sb.style.display='none';}}
+}
+
+let editingTaskId=null;let currentTags=[];let currentDeliverables=[];let currentCriteria=[];let currentResources=[];
+let calYear,calMonth;let chartInstances={};let reviewTargetTaskId=null;let convertAppId=null;let resetPwdWorkerId=null;
+let editingProjectId=null;
+
+// ═══════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════
+const pageMeta={
+  dashboard:["Dashboard","Welcome back, Admin. Here's what needs your attention."],
+  kanban:['Kanban Board','Drag tasks across workflow stages.'],
+  applications:['Applications','Manage internship applications.'],
+  projects:['Projects','Manage projects and their tasks.'],
+  tasks:['All Tasks','Full view of all tasks across projects.'],
+  workers:['Workers','Manage your team and their access.'],
+  calendar:['Calendar','Task and project deadlines at a glance.'],
+  submissions:['Submissions','Review work submitted by workers.'],
+  reviews:['Reviews','Scored reviews and feedback history.'],
+  analytics:['Analytics','Team performance and insights.'],
+  activity:['Activity Log','Detailed history of all platform actions.'],
+  notifpage:['Notifications','All platform notifications.'],
+  settings:['Settings','Platform configuration.'],
+};
+function navigate(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const el=document.getElementById('page-'+page);
+  if(!el)return;
+  el.classList.add('active');
+  document.getElementById('nav-'+page)?.classList.add('active');
+  const meta=pageMeta[page]||[page,''];
+  document.getElementById('pageTitle').textContent=meta[0];
+  document.getElementById('pageSubtitle').textContent=meta[1];
+  document.getElementById('notifPanel').classList.remove('open');
+  if(page==='dashboard')renderDashboard();
+  if(page==='kanban'){renderKanban();populateWorkerFilter('kanbanFilterWorker');populateProjectFilter('kanbanFilterProject');}
+  if(page==='applications')renderApplications();
+  if(page==='projects')renderProjects();
+  if(page==='tasks'){renderTaskTable();populateWorkerFilter('taskFilterWorker');populateProjectFilter('taskFilterProject');}
+  if(page==='workers')renderWorkers();
+  if(page==='calendar')renderCalendar();
+  if(page==='submissions')renderSubmissions();
+  if(page==='reviews')renderReviews();
+  if(page==='analytics')renderAnalytics();
+  if(page==='activity')renderActivity();
+  if(page==='notifpage')renderNotifPage();
+  if(page==='settings')renderSettings();
+}
+document.querySelectorAll('.nav-item').forEach(item=>{item.addEventListener('click',()=>navigate(item.dataset.page));});
+document.getElementById('sidebarToggle').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('main').classList.toggle('collapsed');
+});
+
+// Notif panel toggle
+document.getElementById('notifBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  const p=document.getElementById('notifPanel');
+  p.classList.toggle('open');
+  if(p.classList.contains('open'))renderNotifList();
+});
+document.addEventListener('click',()=>document.getElementById('notifPanel').classList.remove('open'));
+
+function renderNotifList(){
+  const d=getData();
+  const list=document.getElementById('notifList');
+  if(!d.notifications.length){list.innerHTML='<div class="notif-empty">No notifications yet</div>';return;}
+  list.innerHTML=d.notifications.slice(0,15).map(n=>`
+    <div class="notif-item ${n.read?'':'unread'}" onclick="markNotifRead('${n.id}')">
+      <div>${n.msg}</div><div class="notif-time">${fmtAgo(n.at)}</div>
+    </div>`).join('');
+}
+function markNotifRead(id){const d=getData();const n=d.notifications.find(x=>x.id===id);if(n)n.read=true;setData(d);renderNotifBadge();renderNotifList();}
+function markAllNotifRead(){const d=getData();d.notifications.forEach(n=>n.read=true);setData(d);renderNotifBadge();renderNotifList();renderNotifPage();}
+function clearNotifications(){const d=getData();d.notifications=[];setData(d);renderNotifBadge();renderNotifList();renderNotifPage();}
+
+// ═══════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════
+function renderDashboard(){
+  const d=getData();
+  const tasks=d.tasks;
+  const workers=d.workers;
+  const activeWorkers=workers.filter(w=>w.status==='active').length;
+  const newApps=d.applications.filter(a=>a.status==='new').length;
+  const activeTasks=tasks.filter(t=>t.status==='inprogress'||t.status==='accepted').length;
+  const awaitingReview=tasks.filter(t=>t.status==='submitted'||t.status==='resubmitted').length;
+  const overdue=tasks.filter(t=>isOverdue(t.dueDate,t.status)).length;
+  const weekStart=getWeekStart();
+  const doneThisWeek=tasks.filter(t=>{const sub=t.submissions?.slice(-1)[0];return t.status==='completed'&&sub&&new Date(sub.submittedAt)>=weekStart;}).length;
+
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat-card s-workers"><div class="stat-icon">👥</div><div class="stat-value">${activeWorkers}</div><div class="stat-label">Active Workers</div><div class="stat-sub">${workers.length} total</div></div>
+    <div class="stat-card s-apps"><div class="stat-icon">📋</div><div class="stat-value">${newApps}</div><div class="stat-label">Pending Applications</div><div class="stat-sub" style="cursor:pointer;color:var(--warning);" onclick="navigate('applications')">View →</div></div>
+    <div class="stat-card s-active"><div class="stat-icon">⚡</div><div class="stat-value">${activeTasks}</div><div class="stat-label">Active Tasks</div></div>
+    <div class="stat-card s-review"><div class="stat-icon">🔍</div><div class="stat-value">${awaitingReview}</div><div class="stat-label">Awaiting Review</div><div class="stat-sub" style="cursor:pointer;color:var(--purple);" onclick="navigate('submissions')">Review →</div></div>
+    <div class="stat-card s-overdue"><div class="stat-icon">⚠️</div><div class="stat-value">${overdue}</div><div class="stat-label">Overdue</div></div>
+    <div class="stat-card s-done"><div class="stat-icon">✅</div><div class="stat-value">${doneThisWeek}</div><div class="stat-label">Completed This Week</div></div>`;
+
+  // Needs Attention
+  const items=[];
+  if(awaitingReview>0)items.push({icon:'📤',text:`${awaitingReview} submission${awaitingReview>1?'s':''} waiting for review`,count:awaitingReview,page:'submissions'});
+  if(overdue>0)items.push({icon:'⚠️',text:`${overdue} task${overdue>1?'s':''} overdue`,count:overdue,page:'tasks'});
+  if(newApps>0)items.push({icon:'📋',text:`${newApps} internship application${newApps>1?'s':''} pending`,count:newApps,page:'applications'});
+  const overloaded=workers.filter(w=>{const wt=tasks.filter(t=>t.assignee===w.name&&(t.status==='inprogress'||t.status==='accepted'));return wt.length>4;}).length;
+  if(overloaded>0)items.push({icon:'🔥',text:`${overloaded} worker${overloaded>1?'s':''} with 5+ active tasks`,count:overloaded,page:'workers'});
+
+  const ap=document.getElementById('attentionPanel');
+  if(items.length){
+    ap.innerHTML=`<div class="attention-panel"><div class="attention-header"><span style="font-size:20px;">⚠️</span><div class="attention-title">Needs Your Attention</div></div><div class="attention-list">${
+      items.map(i=>`<div class="attention-item" onclick="navigate('${i.page}')"><span class="ai-icon">${i.icon}</span><span class="ai-text">${i.text}</span><span class="ai-count">${i.count}</span><span class="ai-action">View →</span></div>`).join('')
+    }</div></div>`;
+  }else{
+    ap.innerHTML=`<div style="background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.15);border-radius:var(--radius);padding:16px;margin-bottom:18px;display:flex;align-items:center;gap:12px;"><span style="font-size:22px;">🎉</span><span style="font-size:14px;font-weight:600;color:var(--success);">Everything looks good! No immediate actions needed.</span></div>`;
+  }
+
+  // Recent Tasks table
+  const recent=tasks.slice(-8).reverse();
+  const rt=document.getElementById('recentTasksTable');
+  if(!recent.length){rt.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><p>No tasks yet</p></div>';return;}
+  rt.innerHTML=`<table><thead><tr><th>Task</th><th>Worker</th><th>Project</th><th>Status</th><th>Due</th></tr></thead><tbody>${
+    recent.map(t=>{
+      const proj=d.projects.find(p=>p.id===t.projectId);
+      return `<tr style="cursor:pointer;" onclick="openDetail('${t.id}')">
+        <td class="td-name" style="display:table-cell;">${t.title}</td>
+        <td>${workerChip(t.assignee)}</td>
+        <td><span style="font-size:12px;color:var(--text2);">${proj?proj.name:'—'}</span></td>
+        <td>${statusBadge(t)}</td>
+        <td><span class="due-chip ${isOverdue(t.dueDate,t.status)?'overdue':''}">${fmtDate(t.dueDate)}</span></td>
+      </tr>`;
+    }).join('')
+  }</tbody></table>`;
+
+  // Activity feed
+  const af=document.getElementById('dashActivityFeed');
+  const acts=d.activity.slice(0,12);
+  if(!acts.length){af.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;">No activity yet.</div>';return;}
+  af.innerHTML=acts.map(a=>`<div class="activity-item"><div class="activity-dot dot-${a.type}"></div><div style="flex:1;"><div class="activity-text">${a.action}</div><div class="activity-time">${fmtAgo(a.at)}</div></div></div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+//  APPLICATIONS
+// ═══════════════════════════════════════════
+function renderApplications(){
+  const d=getData();
+  let apps=d.applications;
+  const search=document.getElementById('appSearch')?.value.toLowerCase()||'';
+  const status=document.getElementById('appFilterStatus')?.value||'';
+  if(search)apps=apps.filter(a=>a.name.toLowerCase().includes(search)||a.email?.toLowerCase().includes(search)||a.college?.toLowerCase().includes(search));
+  if(status)apps=apps.filter(a=>a.status===status);
+  const tbody=document.getElementById('appTableBody');
+  if(!apps.length){tbody.innerHTML='<tr><td colspan="7"><div class="empty-state" style="padding:30px;"><div class="empty-icon">📋</div><p>No applications found. Click "+ Add Application" to add one.</p></div></td></tr>';return;}
+  tbody.innerHTML=apps.map(a=>`
+    <tr>
+      <td class="td-name"><div class="td-avatar">${a.name[0].toUpperCase()}</div>${a.name}<br><span style="font-size:11px;color:var(--text3);font-weight:400;">${a.email||''}</span></td>
+      <td style="font-size:12px;">${a.college||'—'}</td>
+      <td style="font-size:12px;">${a.course||'—'}</td>
+      <td>${a.skills?.slice(0,3).map(s=>`<span class="tag">${s}</span>`).join(' ')||'—'}</td>
+      <td style="font-size:12px;color:var(--text2);">${fmtDate(a.appliedDate)}</td>
+      <td>${appStatusBadge(a.status)}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="openAppDetail('${a.id}')">👁 View</button>
+          ${a.status==='new'?`<button class="btn btn-warning btn-sm" onclick="setAppStatus('${a.id}','underreview')">🔍 Review</button>`:''}
+          ${(a.status==='new'||a.status==='underreview')&&!a.convertedToWorkerId?`<button class="btn btn-success btn-sm" onclick="openConvertModal('${a.id}')">✅ Approve</button><button class="btn btn-danger btn-sm" onclick="setAppStatus('${a.id}','rejected')">✗ Reject</button>`:''}
+          ${a.convertedToWorkerId?`<span style="font-size:11px;color:var(--success);">✓ Worker</span>`:''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+function appStatusBadge(s){const m={new:'badge-new New',underreview:'badge-underreview Under Review',approved:'badge-approved Approved',rejected:'badge-rejected Rejected'};const v=m[s]||'badge-inactive Unknown';return`<span class="badge ${v.split(' ')[0]}">${v.split(' ').slice(1).join(' ')}</span>`;}
+function setAppStatus(id,status){const d=getData();const a=d.applications.find(x=>x.id===id);if(!a)return;a.status=status;setData(d);renderApplications();addActivity(`Application from <strong>${a.name}</strong> marked as <strong>${status}</strong>`,'updated');addNotification(`Application from ${a.name} is now ${status}.`);}
+function openAddAppModal(){document.getElementById('addAppModal').classList.add('open');}
+function saveApplication(){
+  const name=document.getElementById('aName').value.trim();
+  const email=document.getElementById('aEmail').value.trim();
+  if(!name||!email){toast('Name and Email required','error');return;}
+  const d=getData();
+  d.applications.push({id:uid(),name,email,college:document.getElementById('aCollege').value.trim(),course:document.getElementById('aCourse').value.trim(),skills:document.getElementById('aSkills').value.split(',').map(s=>s.trim()).filter(Boolean),github:document.getElementById('aGithub').value.trim(),linkedin:document.getElementById('aLinkedin').value.trim(),portfolio:document.getElementById('aPortfolio').value.trim(),internshipInterest:document.getElementById('aInterest').value.trim(),availability:document.getElementById('aAvailability').value.trim(),appliedDate:now(),status:'new',notes:'',convertedToWorkerId:null});
+  setData(d);document.getElementById('addAppModal').classList.remove('open');renderApplications();
+  addActivity(`New application from <strong>${name}</strong>`,'created');
+  addNotification(`📋 New application received from ${name}.`);
+  toast('Application added!','success');
+  renderNotifBadge();
+}
+let currentAppId=null;
+function openAppDetail(id){
+  const d=getData();const a=d.applications.find(x=>x.id===id);if(!a)return;
+  currentAppId=id;
+  document.getElementById('appDetailTitle').textContent=`${a.name} — Application`;
+  document.getElementById('appProfileContent').innerHTML=`
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+      <div class="td-avatar" style="width:56px;height:56px;font-size:22px;">${a.name[0].toUpperCase()}</div>
+      <div><div style="font-size:18px;font-weight:700;">${a.name}</div><div style="font-size:13px;color:var(--text2);">${a.email||''}</div><div style="margin-top:6px;">${appStatusBadge(a.status)}</div></div>
+    </div>
+    <div class="form-row">
+      <div><label class="form-label">Skills</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${a.skills?.map(s=>`<span class="tag">${s}</span>`).join('')||'—'}</div></div>
+      <div><label class="form-label">Applied</label><div style="font-size:13px;margin-top:6px;">${fmtDate(a.appliedDate)}</div></div>
+    </div>
+    <div class="form-row" style="margin-top:12px;">
+      ${a.github?`<div><label class="form-label">GitHub</label><a href="https://${a.github}" target="_blank" style="color:var(--accent);font-size:12px;">${a.github}</a></div>`:''}
+      ${a.linkedin?`<div><label class="form-label">LinkedIn</label><a href="https://${a.linkedin}" target="_blank" style="color:var(--accent);font-size:12px;">${a.linkedin}</a></div>`:''}
+      ${a.portfolio?`<div><label class="form-label">Portfolio</label><a href="${a.portfolio}" target="_blank" style="color:var(--accent);font-size:12px;">${a.portfolio}</a></div>`:''}
+    </div>`;
+  document.getElementById('appEduContent').innerHTML=`
+    <div class="form-group"><label class="form-label">College / University</label><div style="font-size:14px;margin-top:6px;">${a.college||'—'}</div></div>
+    <div class="form-group"><label class="form-label">Course / Degree</label><div style="font-size:14px;margin-top:6px;">${a.course||'—'}</div></div>`;
+  document.getElementById('appInternContent').innerHTML=`
+    <div class="form-group"><label class="form-label">Internship Interest</label><div style="font-size:14px;margin-top:6px;">${a.internshipInterest||'—'}</div></div>
+    <div class="form-group"><label class="form-label">Availability</label><div style="font-size:14px;margin-top:6px;">${a.availability||'—'}</div></div>`;
+  document.getElementById('appNotesContent').innerHTML=`
+    <div class="form-group"><label class="form-label">Admin Notes</label><textarea class="form-textarea" id="appNoteText" style="min-height:140px;">${a.notes||''}</textarea></div>
+    <button class="btn btn-primary btn-sm" onclick="saveAppNotes('${a.id}')">💾 Save Notes</button>`;
+  document.getElementById('appDetailFooter').innerHTML=`
+    ${!a.convertedToWorkerId&&a.status!=='rejected'?`<button class="btn btn-success" onclick="openConvertModal('${a.id}')">✅ Approve &amp; Create Worker</button>`:''}
+    ${a.status!=='rejected'?`<button class="btn btn-danger" onclick="setAppStatus('${a.id}','rejected');closeAppDetailModal()">✗ Reject</button>`:''}
+    <button class="btn btn-ghost" onclick="closeAppDetailModal()">Close</button>`;
+  switchTab('appDetail',0,document.querySelector('#appDetailModal .modal-tab'));
+  document.getElementById('appDetailModal').classList.add('open');
+}
+function saveAppNotes(id){const d=getData();const a=d.applications.find(x=>x.id===id);if(a){a.notes=document.getElementById('appNoteText').value;setData(d);toast('Notes saved','success');}}
+function closeAppDetailModal(){document.getElementById('appDetailModal').classList.remove('open');}
+function openConvertModal(id){
+  const d=getData();const a=d.applications.find(x=>x.id===id);if(!a)return;
+  convertAppId=id;
+  document.getElementById('cvName').value=a.name;
+  document.getElementById('cvEmail').value=a.email||'';
+  document.getElementById('cvRole').value=a.internshipInterest||'';
+  document.getElementById('cvStartDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('convertModal').classList.add('open');
+  document.getElementById('appDetailModal').classList.remove('open');
+}
+async function doConvertToWorker(){
+  const d=getData();const a=d.applications.find(x=>x.id===convertAppId);if(!a)return;
+  const name=document.getElementById('cvName').value.trim();
+  const email=document.getElementById('cvEmail').value.trim();
+  const role=document.getElementById('cvRole').value.trim()||'Intern';
+  const team=document.getElementById('cvTeam').value.trim();
+  const startDate=document.getElementById('cvStartDate').value;
+  const btn=document.getElementById('convertBtn');
+  btn.textContent='Creating…';btn.disabled=true;
+  const loginId=email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g,'.')||name.toLowerCase().replace(/\s+/g,'.');
+  const tmpPwd=Math.random().toString(36).slice(2,8)+'@'+Math.floor(Math.random()*90+10);
+  const passwordHash=await hashPassword(tmpPwd);
+  const workerId=uid();
+  d.workers.push({id:workerId,name,email,role,team,department:team,loginId,passwordHash,status:'active',startDate,joinedDate:now(),inviteToken:''});
+  a.status='approved';a.convertedToWorkerId=workerId;
+  setData(d);
+  btn.textContent='✅ Approve & Create Worker';btn.disabled=false;
+  document.getElementById('convertModal').classList.remove('open');
+  // Show credentials
+  document.getElementById('credLoginId').value=loginId;
+  document.getElementById('credPassword').value=tmpPwd;
+  document.getElementById('credName').value=name;
+  document.getElementById('credModal').classList.add('open');
+  addActivity(`Applicant <strong>${name}</strong> approved and converted to Worker`,'created');
+  addNotification(`✅ ${name} approved and added as a worker.`);
+  renderApplications();renderWorkers();renderNotifBadge();
+  toast(`${name} is now a worker!`,'success');
+}
+
+// ═══════════════════════════════════════════
+//  PROJECTS
+// ═══════════════════════════════════════════
+function renderProjects(){
+  const d=getData();
+  let projs=d.projects;
+  const search=document.getElementById('projSearch')?.value.toLowerCase()||'';
+  if(search)projs=projs.filter(p=>p.name.toLowerCase().includes(search));
+  const grid=document.getElementById('projectGrid');
+  if(!projs.length){grid.innerHTML='<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">📁</div><p>No projects yet.<br>Click "+ New Project" to create one.</p></div>';return;}
+  grid.innerHTML=projs.map(p=>{
+    const pTasks=d.tasks.filter(t=>t.projectId===p.id);
+    const done=pTasks.filter(t=>t.status==='completed'||t.status==='approved').length;
+    const pct=pTasks.length?Math.round(done/pTasks.length*100):0;
+    const du=daysUntil(p.deadline);
+    const statusColors={active:'badge-active',paused:'badge-underreview',completed:'badge-completed',archived:'badge-inactive'};
+    return `<div class="project-card" onclick="openProjectDetail('${p.id}')">
+      <div class="project-card-header">
+        <div>
+          <div class="project-card-name">📁 ${p.name}</div>
+          <span class="badge ${statusColors[p.status]||'badge-inactive'}" style="margin-top:6px;display:inline-flex;">${p.status}</span>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <div class="icon-btn" onclick="event.stopPropagation();openEditProject('${p.id}')">✏️</div>
+          <div class="icon-btn" onclick="event.stopPropagation();deleteProject('${p.id}')">🗑️</div>
+        </div>
+      </div>
+      <div class="project-card-desc">${p.description||'No description.'}</div>
+      <div class="project-progress-bar"><div class="project-progress-fill" style="width:${pct}%"></div></div>
+      <div class="project-meta">
+        <div class="project-meta-item">📝 ${pTasks.length} task${pTasks.length!==1?'s':''}</div>
+        <div class="project-meta-item">✅ ${done} done</div>
+        <div class="project-meta-item">${pct}% complete</div>
+        ${p.deadline?`<div class="project-meta-item" style="${isOverdue(p.deadline,'active')?'color:var(--danger)':''}">📅 ${du===0?'Due today':du<0?Math.abs(du)+'d overdue':du+'d left'}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function openAddProjectModal(){editingProjectId=null;document.getElementById('projModalTitle').textContent='📁 New Project';['pName','pDesc','pDeadline'].forEach(id=>document.getElementById(id).value='');document.getElementById('pStatus').value='active';document.getElementById('projectModal').classList.add('open');}
+function openEditProject(id){editingProjectId=id;const d=getData();const p=d.projects.find(x=>x.id===id);if(!p)return;document.getElementById('projModalTitle').textContent='✏️ Edit Project';document.getElementById('pName').value=p.name;document.getElementById('pDesc').value=p.description||'';document.getElementById('pDeadline').value=p.deadline||'';document.getElementById('pStatus').value=p.status;document.getElementById('projectModal').classList.add('open');}
+function saveProject(){
+  const name=document.getElementById('pName').value.trim();if(!name){toast('Project name required','error');return;}
+  const d=getData();
+  if(editingProjectId){const p=d.projects.find(x=>x.id===editingProjectId);if(p){p.name=name;p.description=document.getElementById('pDesc').value.trim();p.deadline=document.getElementById('pDeadline').value;p.status=document.getElementById('pStatus').value;}}
+  else{d.projects.push({id:uid(),name,description:document.getElementById('pDesc').value.trim(),deadline:document.getElementById('pDeadline').value,status:document.getElementById('pStatus').value,createdAt:now()});addActivity(`Project "<strong>${name}</strong>" created`,'created');}
+  setData(d);document.getElementById('projectModal').classList.remove('open');renderProjects();toast('Project saved!','success');
+}
+function deleteProject(id){if(!confirm('Delete this project?'))return;const d=getData();const p=d.projects.find(x=>x.id===id);d.projects=d.projects.filter(x=>x.id!==id);setData(d);renderProjects();addActivity(`Project "<strong>${p?.name}</strong>" deleted`,'updated');}
+function openProjectDetail(id){navigate('tasks');setTimeout(()=>{document.getElementById('taskFilterProject').value=id;renderTaskTable();},100);}
+
+// ═══════════════════════════════════════════
+//  WORKERS
+// ═══════════════════════════════════════════
+function renderWorkers(){
+  const d=getData();
+  let workers=d.workers;
+  const search=document.getElementById('workerSearch')?.value.toLowerCase()||'';
+  const status=document.getElementById('workerFilterStatus')?.value||'';
+  if(search)workers=workers.filter(w=>w.name.toLowerCase().includes(search)||w.role?.toLowerCase().includes(search)||w.email?.toLowerCase().includes(search));
+  if(status)workers=workers.filter(w=>w.status===status);
+  const tbody=document.getElementById('workerTableBody');
+  if(!workers.length){tbody.innerHTML='<tr><td colspan="10"><div class="empty-state" style="padding:30px;"><div class="empty-icon">👥</div><p>No workers yet. Click "+ Invite Worker" to add one.</p></div></td></tr>';return;}
+  tbody.innerHTML=workers.map(w=>{
+    const wTasks=d.tasks.filter(t=>t.assignee===w.name);
+    const activeTasks=wTasks.filter(t=>t.status==='inprogress'||t.status==='accepted').length;
+    const pending=wTasks.filter(t=>t.status==='submitted'||t.status==='resubmitted'||t.status==='underreview').length;
+    const done=wTasks.filter(t=>t.status==='completed'||t.status==='approved').length;
+    const ontime=wTasks.filter(t=>(t.status==='completed'||t.status==='approved')&&t.dueDate&&new Date(t.dueDate)>=new Date(t.submissions?.slice(-1)[0]?.submittedAt||now())).length;
+    const ontimePct=done?Math.round(ontime/done*100):0;
+    return `<tr>
+      <td class="td-name"><div class="td-avatar">${w.name[0].toUpperCase()}</div><div><div style="font-weight:600;">${w.name}</div><div style="font-size:11px;color:var(--text3);">${w.email||''}</div></div></td>
+      <td style="font-size:12px;">${w.role||'—'}</td>
+      <td style="font-size:12px;">${w.team||'—'}</td>
+      <td>${workerStatusBadge(w.status)}</td>
+      <td style="text-align:center;font-weight:600;">${activeTasks}</td>
+      <td style="text-align:center;font-weight:600;color:var(--purple);">${pending}</td>
+      <td style="text-align:center;font-weight:600;color:var(--success);">${done}</td>
+      <td style="text-align:center;font-size:12px;">${done>0?ontimePct+'%':'—'}</td>
+      <td><span style="background:rgba(108,99,255,0.1);color:var(--accent2);font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;font-family:monospace;">${w.loginId||'—'}</span></td>
+      <td>
+        <div style="display:flex;gap:5px;">
+          <button class="btn btn-ghost btn-sm" onclick="openResetPwd('${w.id}')">🔑</button>
+          <button class="btn btn-ghost btn-sm" onclick="cycleWorkerStatus('${w.id}')">⇄ ${w.status==='active'?'Deactivate':'Activate'}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteWorker('${w.id}')">✗</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function workerStatusBadge(s){const m={invited:'badge-invited Invited',active:'badge-active Active',inactive:'badge-inactive Inactive',suspended:'badge-suspended Suspended',completed:'badge-completed Completed'};const v=m[s]||'badge-inactive Unknown';return`<span class="badge ${v.split(' ')[0]}">${v.split(' ').slice(1).join(' ')}</span>`;}
+function openAddWorkerModal(){['wName','wEmail','wRole','wTeam','wStartDate'].forEach(id=>document.getElementById(id).value='');document.getElementById('workerModal').classList.add('open');}
+function closeWorkerModal(){document.getElementById('workerModal').classList.remove('open');}
+async function inviteWorker(){
+  const name=document.getElementById('wName').value.trim();
+  const email=document.getElementById('wEmail').value.trim();
+  const role=document.getElementById('wRole').value.trim();
+  if(!name||!email||!role){toast('Name, Email and Role are required','error');return;}
+  const btn=document.getElementById('inviteWorkerBtn');btn.textContent='⏳ Generating…';btn.disabled=true;
+  const loginId=email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g,'.')||name.toLowerCase().replace(/\s+/g,'.');
+  const tmpPwd=Math.random().toString(36).slice(2,8)+'@'+Math.floor(Math.random()*90+10);
+  const passwordHash=await hashPassword(tmpPwd);
+  const d=getData();
+  if(d.workers.find(w=>w.loginId===loginId)){toast('A worker with this email already exists','error');btn.textContent='📨 Generate Credentials';btn.disabled=false;return;}
+  d.workers.push({id:uid(),name,email,role,team:document.getElementById('wTeam').value.trim(),department:document.getElementById('wTeam').value.trim(),loginId,passwordHash,status:'invited',startDate:document.getElementById('wStartDate').value,joinedDate:now(),inviteToken:''});
+  setData(d);btn.textContent='📨 Generate Credentials';btn.disabled=false;
+  closeWorkerModal();
+  document.getElementById('credLoginId').value=loginId;
+  document.getElementById('credPassword').value=tmpPwd;
+  document.getElementById('credName').value=name;
+  document.getElementById('credModal').classList.add('open');
+  addActivity(`Worker <strong>${name}</strong> invited — Login ID: <strong>${loginId}</strong>`,'created');
+  renderWorkers();toast(`${name} added! Share credentials.`,'success');
+}
+function cycleWorkerStatus(id){
+  const d=getData();const w=d.workers.find(x=>x.id===id);if(!w)return;
+  const cycle={invited:'active',active:'inactive',inactive:'active',suspended:'active',completed:'active'};
+  const old=w.status;w.status=cycle[w.status]||'active';
+  setData(d);renderWorkers();addActivity(`Worker <strong>${w.name}</strong> status changed from ${old} to <strong>${w.status}</strong>`,'updated');toast(`${w.name} is now ${w.status}`,'info');
+}
+function deleteWorker(id){if(!confirm('Remove this worker? They will lose access.'))return;const d=getData();const w=d.workers.find(x=>x.id===id);d.workers=d.workers.filter(x=>x.id!==id);setData(d);renderWorkers();addActivity(`Worker <strong>${w?.name}</strong> removed`,'updated');toast('Worker removed','info');}
+// Reset password
+let resetPwdWorkerId2=null;
+function openResetPwd(id){const d=getData();const w=d.workers.find(x=>x.id===id);if(!w)return;resetPwdWorkerId2=id;document.getElementById('resetPwdWorkerInfo').innerHTML=`👤 <strong>${w.name}</strong> &nbsp;🔐 Login ID: <code style="background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">${w.loginId}</code>`;document.getElementById('resetNewPwd').value='';document.getElementById('resetNewPwd2').value='';document.getElementById('resetPwdModal').classList.add('open');}
+function closeResetPwdModal(){document.getElementById('resetPwdModal').classList.remove('open');}
+async function doResetPassword(){const pwd=document.getElementById('resetNewPwd').value;const pwd2=document.getElementById('resetNewPwd2').value;if(!pwd){toast('Password required','error');return;}if(pwd!==pwd2){toast('Passwords do not match','error');return;}if(pwd.length<4){toast('Minimum 4 characters','error');return;}const btn=document.getElementById('resetPwdBtn');btn.textContent='🔒 Securing…';btn.disabled=true;const hash=await hashPassword(pwd);btn.textContent='🔑 Reset';btn.disabled=false;const d=getData();const w=d.workers.find(x=>x.id===resetPwdWorkerId2);if(w){w.passwordHash=hash;setData(d);}closeResetPwdModal();toast(`Password reset for ${w?.name}!`,'success');addActivity(`Password reset for <strong>${w?.name}</strong>`,'updated');}
+
+// ═══════════════════════════════════════════
+//  TASKS
+// ═══════════════════════════════════════════
+function renderTaskTable(){
+  const d=getData();
+  populateWorkerFilter('taskFilterWorker');populateProjectFilter('taskFilterProject');
+  let tasks=d.tasks;
+  const search=document.getElementById('taskSearch')?.value.toLowerCase()||'';
+  const status=document.getElementById('taskFilterStatus')?.value||'';
+  const priority=document.getElementById('taskFilterPriority')?.value||'';
+  const worker=document.getElementById('taskFilterWorker')?.value||'';
+  const proj=document.getElementById('taskFilterProject')?.value||'';
+  if(search)tasks=tasks.filter(t=>t.title.toLowerCase().includes(search)||t.assignee?.toLowerCase().includes(search));
+  if(status)tasks=tasks.filter(t=>t.status===status);
+  if(priority)tasks=tasks.filter(t=>t.priority===priority);
+  if(worker)tasks=tasks.filter(t=>t.assignee===worker);
+  if(proj)tasks=tasks.filter(t=>t.projectId===proj);
+  const tbody=document.getElementById('taskTableBody');
+  if(!tasks.length){tbody.innerHTML='<tr><td colspan="9"><div class="empty-state" style="padding:30px;"><div class="empty-icon">📝</div><p>No tasks found.</p></div></td></tr>';return;}
+  tbody.innerHTML=tasks.map(t=>{
+    const project=d.projects.find(p=>p.id===t.projectId);
+    const lastSub=t.submissions?.slice(-1)[0];
+    const subStatus=lastSub?(lastSub.status==='approved'?'✅ Approved':lastSub.status==='revision'?'🔄 Revision':lastSub.status==='rejected'?'✗ Rejected':'⏳ Pending'):'—';
+    const duCls=isOverdue(t.dueDate,t.status)?'overdue':'';
+    return`<tr style="cursor:pointer;" onclick="openDetail('${t.id}')">
+      <td class="td-name" style="display:table-cell;"><div class="priority-dot p-${t.priority}" style="display:inline-block;margin-right:6px;"></div>${t.title}</td>
+      <td><span style="font-size:11px;color:var(--text2);">${project?project.name:'—'}</span></td>
+      <td>${workerChip(t.assignee)}</td>
+      <td><span class="priority-badge p-badge-${t.priority}">${t.priority}</span></td>
+      <td><div style="font-size:11px;color:var(--text2);">${t.submissions?.length||0} sub${t.submissions?.length!==1?'s':''}</div></td>
+      <td style="font-size:11px;">${subStatus}</td>
+      <td>${statusBadge(t)}</td>
+      <td><span class="due-chip ${duCls}">${fmtDate(t.dueDate)}</span></td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:5px;">
+          <button class="btn btn-ghost btn-sm" onclick="openEditTask('${t.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// Task Modal
+let taskTabIndex=0;
+function switchTaskTab(idx,el){
+  document.querySelectorAll('#taskModal .tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#taskModal .modal-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('ttab-'+idx).classList.add('active');
+  el.classList.add('active');
+  taskTabIndex=idx;
+}
+function openTaskModal(){
+  editingTaskId=null;currentTags=[];currentDeliverables=[];currentCriteria=[];currentResources=[];
+  document.getElementById('taskModalTitle').textContent='Create Task';
+  ['fTitle','fObjective','fInstructions','fHours','fDue','fStartDate','fDeadline'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('fPriority').value='medium';document.getElementById('fStatus').value='assigned';
+  document.getElementById('fSubRequired').checked=true;document.getElementById('fRevRequired').checked=true;
+  populateAssigneeSelect();populateProjectSelect();
+  renderTagPills();renderDeliverables();renderCriteria();renderResources();
+  switchTaskTab(0,document.querySelector('#taskModal .modal-tab'));
+  document.getElementById('taskModal').classList.add('open');
+}
+function openEditTask(id){
+  const d=getData();const t=d.tasks.find(x=>x.id===id);if(!t)return;
+  editingTaskId=id;currentTags=[...(t.tags||[])];currentDeliverables=[...(t.deliverables||[])];currentCriteria=[...(t.acceptanceCriteria||[])];currentResources=[...(t.resources||[])];
+  document.getElementById('taskModalTitle').textContent='Edit Task';
+  document.getElementById('fTitle').value=t.title;
+  document.getElementById('fObjective').value=t.objective||'';
+  document.getElementById('fInstructions').value=t.instructions||'';
+  document.getElementById('fHours').value=t.estimatedHours||'';
+  document.getElementById('fDue').value=t.dueDate||'';
+  document.getElementById('fStartDate').value=t.startDate||'';
+  document.getElementById('fDeadline').value=t.deadline||'';
+  document.getElementById('fPriority').value=t.priority;
+  document.getElementById('fStatus').value=t.status;
+  document.getElementById('fSubRequired').checked=t.submissionRequired!==false;
+  document.getElementById('fRevRequired').checked=t.reviewRequired!==false;
+  populateAssigneeSelect(t.assignee);populateProjectSelect(t.projectId);
+  renderTagPills();renderDeliverables();renderCriteria();renderResources();
+  switchTaskTab(0,document.querySelector('#taskModal .modal-tab'));
+  document.getElementById('taskModal').classList.add('open');
+}
+function closeTaskModal(){document.getElementById('taskModal').classList.remove('open');}
+function saveTask(){
+  const title=document.getElementById('fTitle').value.trim();if(!title){toast('Title is required','error');return;}
+  const assignee=document.getElementById('fAssignee').value;if(!assignee){toast('Please assign to a worker','error');return;}
+  const d=getData();
+  if(editingTaskId){
+    const t=d.tasks.find(x=>x.id===editingTaskId);
+    const old=t.assignee;
+    t.title=title;t.assignee=assignee;t.priority=document.getElementById('fPriority').value;
+    t.dueDate=document.getElementById('fDue').value;t.startDate=document.getElementById('fStartDate').value;
+    t.deadline=document.getElementById('fDeadline').value;t.estimatedHours=+document.getElementById('fHours').value||null;
+    t.status=document.getElementById('fStatus').value;t.tags=[...currentTags];
+    t.projectId=document.getElementById('fProject').value||null;
+    t.objective=document.getElementById('fObjective').value.trim();t.instructions=document.getElementById('fInstructions').value.trim();
+    t.deliverables=[...currentDeliverables];t.acceptanceCriteria=[...currentCriteria];t.resources=[...currentResources];
+    t.submissionRequired=document.getElementById('fSubRequired').checked;t.reviewRequired=document.getElementById('fRevRequired').checked;
+    if(old!==assignee)addNotification(`📋 Task "${title}" reassigned to ${assignee}.`);
+    addActivity(`Task "<strong>${title}</strong>" updated`,'updated');toast('Task updated!','success');
+  }else{
+    const proj=document.getElementById('fProject').value;
+    const t={id:uid(),title,assignee,priority:document.getElementById('fPriority').value,dueDate:document.getElementById('fDue').value,startDate:document.getElementById('fStartDate').value,deadline:document.getElementById('fDeadline').value,estimatedHours:+document.getElementById('fHours').value||null,status:document.getElementById('fStatus').value,tags:[...currentTags],projectId:proj||null,objective:document.getElementById('fObjective').value.trim(),instructions:document.getElementById('fInstructions').value.trim(),deliverables:[...currentDeliverables],acceptanceCriteria:[...currentCriteria],resources:[...currentResources],submissionRequired:document.getElementById('fSubRequired').checked,reviewRequired:document.getElementById('fRevRequired').checked,submissions:[],createdAt:now()};
+    d.tasks.push(t);
+    const pname=d.projects.find(p=>p.id===proj)?.name;
+    addActivity(`Admin assigned task "<strong>${title}</strong>" to <strong>${assignee}</strong>${pname?' on project <strong>'+pname+'</strong>':''}`,'created');
+    addNotification(`📋 New task "${title}" assigned to ${assignee}.`);
+    toast('Task created!','success');
+  }
+  setData(d);closeTaskModal();renderCurrentPage();renderNotifBadge();
+}
+function deleteTask(id){if(!confirm('Delete this task?'))return;const d=getData();const t=d.tasks.find(x=>x.id===id);d.tasks=d.tasks.filter(x=>x.id!==id);setData(d);addActivity(`Task "<strong>${t?.title}</strong>" deleted`,'updated');toast('Task deleted','info');renderCurrentPage();}
+
+// Deliverables
+function renderDeliverables(){
+  const el=document.getElementById('deliverablesList');
+  el.innerHTML=currentDeliverables.map((del,i)=>`<div class="deliverable-row">
+    <select class="form-select" style="flex:0 0 140px;" onchange="currentDeliverables[${i}].type=this.value">
+      ${['Document','Spreadsheet','GitHub URL','Website URL','Image','Video','File','Other'].map(opt=>`<option ${del.type===opt?'selected':''}>${opt}</option>`).join('')}
+    </select>
+    <input class="form-input" value="${del.label||''}" placeholder="Label / description…" oninput="currentDeliverables[${i}].label=this.value" style="flex:1;"/>
+    <button class="btn btn-danger btn-sm" onclick="currentDeliverables.splice(${i},1);renderDeliverables()">✕</button>
+  </div>`).join('');
+}
+function addDeliverable(){currentDeliverables.push({type:'Document',label:''});renderDeliverables();}
+// Criteria
+function renderCriteria(){
+  const el=document.getElementById('criteriaList');
+  el.innerHTML=currentCriteria.map((c,i)=>`<div class="checklist-item">
+    <span style="color:var(--text3);font-size:16px;">☐</span>
+    <input type="text" value="${c.text||''}" placeholder="Criterion…" oninput="currentCriteria[${i}].text=this.value" style="flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;"/>
+    <button class="btn btn-danger btn-sm" onclick="currentCriteria.splice(${i},1);renderCriteria()">✕</button>
+  </div>`).join('');
+}
+function addCriteria(){currentCriteria.push({text:'',checked:false});renderCriteria();}
+// Resources
+function renderResources(){
+  const el=document.getElementById('resourcesList');
+  el.innerHTML=currentResources.map((r,i)=>`<div class="resource-row">
+    <select class="form-select" style="flex:0 0 100px;" onchange="currentResources[${i}].type=this.value">
+      <option ${r.type==='URL'?'selected':''}>URL</option><option ${r.type==='File'?'selected':''}>File</option><option ${r.type==='Note'?'selected':''}>Note</option>
+    </select>
+    <input class="form-input" value="${r.label||''}" placeholder="Label…" oninput="currentResources[${i}].label=this.value" style="flex:1;"/>
+    <input class="form-input" value="${r.value||''}" placeholder="URL or description…" oninput="currentResources[${i}].value=this.value" style="flex:2;"/>
+    <button class="btn btn-danger btn-sm" onclick="currentResources.splice(${i},1);renderResources()">✕</button>
+  </div>`).join('');
+}
+function addResource(){currentResources.push({type:'URL',label:'',value:''});renderResources();}
+// Tags
+function renderTagPills(){const c=document.getElementById('tagsContainer');c.querySelectorAll('.tag-pill').forEach(el=>el.remove());const inp=document.getElementById('tagInput');currentTags.forEach((tag,i)=>{const p=document.createElement('div');p.className='tag-pill';p.innerHTML=`${tag} <span class="tag-pill-remove" onclick="currentTags.splice(${i},1);renderTagPills()">×</span>`;c.insertBefore(p,inp);});}
+document.getElementById('tagInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const v=e.target.value.trim();if(v&&!currentTags.includes(v)){currentTags.push(v);e.target.value='';renderTagPills();}}});
+
+// ═══════════════════════════════════════════
+//  TASK DETAIL
+// ═══════════════════════════════════════════
+function openDetail(id){
+  const d=getData();const t=d.tasks.find(x=>x.id===id);if(!t)return;
+  const proj=d.projects.find(p=>p.id===t.projectId);
+  document.getElementById('detailTitle').textContent=t.title;
+  const lastSub=t.submissions?.slice(-1)[0];
+  document.getElementById('detailBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
+      <div><label class="form-label">Assignee</label><div style="margin-top:6px;">${workerChip(t.assignee)}</div></div>
+      <div><label class="form-label">Project</label><div style="font-size:13px;margin-top:6px;">${proj?proj.name:'—'}</div></div>
+      <div><label class="form-label">Status</label><div style="margin-top:6px;">${statusBadge(t)}</div></div>
+      <div><label class="form-label">Priority</label><div style="margin-top:6px;"><span class="priority-badge p-badge-${t.priority}">${t.priority}</span></div></div>
+      <div><label class="form-label">Due Date</label><div style="font-size:13px;margin-top:6px;">${fmtDate(t.dueDate)}</div></div>
+      <div><label class="form-label">Est. Hours</label><div style="font-size:13px;margin-top:6px;">${t.estimatedHours||'—'}</div></div>
+    </div>
+    ${t.objective?`<div class="form-group"><label class="form-label">Objective</label><div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.6;">${t.objective}</div></div>`:''}
+    ${t.instructions?`<div class="form-group"><label class="form-label">Instructions</label><div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.6;white-space:pre-wrap;">${t.instructions}</div></div>`:''}
+    ${t.acceptanceCriteria?.length?`<div class="form-group"><label class="form-label">Acceptance Criteria</label><div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">${t.acceptanceCriteria.map(c=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;"><span style="color:var(--success);">☐</span>${c.text}</div>`).join('')}</div></div>`:''}
+    ${t.deliverables?.length?`<div class="form-group"><label class="form-label">Deliverables</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${t.deliverables.map(del=>`<span class="tag">${del.type}: ${del.label}</span>`).join('')}</div></div>`:''}
+    ${t.tags?.length?`<div class="form-group"><label class="form-label">Tags</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${t.tags.map(tag=>`<span class="tag">${tag}</span>`).join('')}</div></div>`:''}
+    ${lastSub?`
+      <div style="background:var(--bg3);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:16px;margin-top:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:700;color:var(--purple);">📤 Latest Submission (v${t.submissions.length})</div>
+          <span style="font-size:11px;color:var(--text3);">${fmtAgo(lastSub.submittedAt)}</span>
+        </div>
+        <div style="font-size:13px;line-height:1.6;color:var(--text2);">${lastSub.notes||'No notes.'}</div>
+        ${lastSub.links?.length?`
+          <div style="margin-top:10px;">
+            <label class="form-label" style="font-size:10px;">Submitted Links</label>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+              ${lastSub.links.map(l=>`<a href="${l}" target="_blank" class="attachment-chip">🔗 ${l.length>35?l.slice(0,35)+'…':l}</a>`).join('')}
+            </div>
+          </div>`:''
+        }
+        ${(lastSub.files?.length||lastSub.attachments?.length)?`
+          <div style="margin-top:10px;">
+            <label class="form-label" style="font-size:10px;">📁 Cloud Proof Attachments (${(lastSub.files||lastSub.attachments||[]).length})</label>
+            <div class="attachment-grid">
+              ${(lastSub.files||lastSub.attachments||[]).map(f=>`
+                <a href="${f.url}" target="_blank" class="attachment-chip" title="${f.name} (${(f.size/1024).toFixed(1)} KB)">
+                  <span>${f.type&&f.type.startsWith('image/')?'🖼️':f.name.endsWith('.zip')||f.name.endsWith('.rar')?'📦':f.name.endsWith('.pdf')?'📄':'📎'}</span>
+                  <span>${f.name}</span>
+                  <span style="font-size:9px;color:var(--text3);">(${(f.size/1024).toFixed(0)}KB)</span>
+                </a>
+              `).join('')}
+            </div>
+          </div>`:''
+        }
+      </div>`:''
+    }`;
+  const isSubmitted=t.status==='submitted'||t.status==='resubmitted';
+  document.getElementById('detailFooter').innerHTML=`
+    ${isSubmitted?`<button class="btn btn-primary" onclick="closeDetailModal();openReviewModal('${t.id}')">🔍 Review Submission</button>`:''}
+    <button class="btn btn-ghost" onclick="openEditTask('${t.id}');closeDetailModal()">✏️ Edit</button>
+    <button class="btn btn-ghost" onclick="closeDetailModal()">Close</button>`;
+  document.getElementById('detailModal').classList.add('open');
+}
+function closeDetailModal(){document.getElementById('detailModal').classList.remove('open');}
+
+// ═══════════════════════════════════════════
+//  KANBAN
+// ═══════════════════════════════════════════
+const KANBAN_COLS=[
+  {id:'assigned',label:'Assigned',cls:'col-assigned'},
+  {id:'accepted',label:'Accepted',cls:'col-accepted'},
+  {id:'inprogress',label:'In Progress',cls:'col-inprogress'},
+  {id:'submitted',label:'Submitted',cls:'col-submitted'},
+  {id:'underreview',label:'Under Review',cls:'col-underreview'},
+  {id:'revisionrequired',label:'Revision',cls:'col-revisionrequired'},
+  {id:'completed',label:'Completed',cls:'col-completed'},
+];
+const VALID_TRANSITIONS={
+  assigned:['accepted','inprogress'],accepted:['inprogress'],inprogress:['submitted','assigned'],
+  submitted:['underreview'],underreview:['revisionrequired','approved','completed'],
+  revisionrequired:['resubmitted'],resubmitted:['underreview'],approved:['completed'],completed:[]
+};
+function getFilteredKanbanTasks(){
+  const d=getData();let tasks=d.tasks;
+  const search=document.getElementById('kanbanSearch')?.value.toLowerCase()||'';
+  const priority=document.getElementById('kanbanFilterPriority')?.value||'';
+  const worker=document.getElementById('kanbanFilterWorker')?.value||'';
+  const proj=document.getElementById('kanbanFilterProject')?.value||'';
+  if(search)tasks=tasks.filter(t=>t.title.toLowerCase().includes(search)||t.assignee?.toLowerCase().includes(search));
+  if(priority)tasks=tasks.filter(t=>t.priority===priority);
+  if(worker)tasks=tasks.filter(t=>t.assignee===worker);
+  if(proj)tasks=tasks.filter(t=>t.projectId===proj);
+  return tasks;
+}
+function renderKanban(){
+  const tasks=getFilteredKanbanTasks();const d=getData();
+  const board=document.getElementById('kanbanBoard');
+  board.innerHTML=KANBAN_COLS.map(col=>{
+    const colTasks=tasks.filter(t=>{const s=t.status;if(col.id==='completed')return s==='completed'||s==='approved';return s===col.id;});
+    return`<div class="kanban-col ${col.cls}" ondragover="event.preventDefault();this.querySelector('.kanban-tasks').classList.add('drag-over')" ondragleave="this.querySelector('.kanban-tasks').classList.remove('drag-over')" ondrop="dropTask(event,'${col.id}')">
+      <div class="kanban-col-header"><div class="kanban-col-dot"></div><div class="kanban-col-title">${col.label}</div><div class="kanban-col-count">${colTasks.length}</div></div>
+      <div class="kanban-tasks" id="kcol-${col.id}">
+        ${colTasks.length?colTasks.map(t=>kanbanCard(t,d)).join(''):'<div style="color:var(--text3);font-size:11px;text-align:center;padding:16px;">Drop here</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+function kanbanCard(t,d){
+  const du=daysUntil(t.dueDate);const duCls=isOverdue(t.dueDate,t.status)?'overdue':du!==null&&du<=3?'soon':'';
+  const proj=d.projects.find(p=>p.id===t.projectId);
+  return`<div class="task-card p-${t.priority}" draggable="true" ondragstart="dragStart(event,'${t.id}')" onclick="openDetail('${t.id}')">
+    <div class="task-card-actions"><div class="icon-btn" onclick="event.stopPropagation();openEditTask('${t.id}')">✏️</div><div class="icon-btn" onclick="event.stopPropagation();deleteTask('${t.id}')">🗑️</div></div>
+    <div class="task-card-title">${t.title}</div>
+    ${proj?`<div style="font-size:10px;color:var(--text3);margin-bottom:6px;">📁 ${proj.name}</div>`:''}
+    <div class="task-card-meta">
+      <span class="priority-badge p-badge-${t.priority}">${t.priority}</span>
+      ${workerChip(t.assignee)}
+      ${t.dueDate?`<span class="due-chip ${duCls}">${isOverdue(t.dueDate,t.status)?'⚠ Overdue':du===0?'📅 Today':du===1?'📅 Tomorrow':'📅 '+fmtDate(t.dueDate)}</span>`:''}
+    </div>
+    ${t.tags?.length?`<div class="task-card-tags">${t.tags.slice(0,3).map(tag=>`<span class="tag">${tag}</span>`).join('')}</div>`:''}
+  </div>`;
+}
+let draggedId=null;
+function dragStart(e,id){draggedId=id;}
+function dropTask(e,newStatus){
+  e.preventDefault();document.querySelectorAll('.kanban-tasks').forEach(el=>el.classList.remove('drag-over'));
+  if(!draggedId)return;
+  const d=getData();const task=d.tasks.find(t=>t.id===draggedId);if(!task)return;
+  const allowed=VALID_TRANSITIONS[task.status]||[];
+  const target=newStatus==='completed'?'completed':newStatus;
+  if(task.status===target){draggedId=null;return;}
+  if(!allowed.includes(target)){
+    toast(`Cannot move from "${task.status}" to "${target}" — invalid workflow step.`,'error');draggedId=null;return;
+  }
+  task.status=target;setData(d);renderKanban();
+  addActivity(`Task "<strong>${task.title}</strong>" moved to <strong>${target}</strong>`,'updated');
+  draggedId=null;
+}
+
+// ═══════════════════════════════════════════
+//  SUBMISSIONS
+// ═══════════════════════════════════════════
+function renderSubmissions(){
+  const d=getData();
+  const search=document.getElementById('subSearch')?.value.toLowerCase()||'';
+  const filter=document.getElementById('subFilterStatus')?.value||'';
+  let tasks=d.tasks.filter(t=>t.submissions&&t.submissions.length>0);
+  if(search)tasks=tasks.filter(t=>t.title.toLowerCase().includes(search)||t.assignee?.toLowerCase().includes(search));
+  if(filter==='pending')tasks=tasks.filter(t=>t.status==='submitted'||t.status==='resubmitted');
+  else if(filter==='approved')tasks=tasks.filter(t=>t.status==='approved'||t.status==='completed');
+  else if(filter==='revision')tasks=tasks.filter(t=>t.status==='revisionrequired');
+  tasks.sort((a,b)=>new Date(b.submissions.slice(-1)[0]?.submittedAt)-new Date(a.submissions.slice(-1)[0]?.submittedAt));
+  const feed=document.getElementById('submissionFeed');
+  if(!tasks.length){feed.innerHTML='<div class="empty-state"><div class="empty-icon">📤</div><p>No submissions yet.</p></div>';return;}
+  feed.innerHTML=tasks.map(t=>{
+    const lastSub=t.submissions.slice(-1)[0];const proj=d.projects.find(p=>p.id===t.projectId);
+    const isNew=t.status==='submitted'||t.status==='resubmitted';
+    const fileCount=(lastSub?.files?.length||lastSub?.attachments?.length||0);
+    const linkCount=(lastSub?.links?.length||0);
+    return`<div class="submission-card ${isNew?'':''}">
+      <div class="sub-avatar">${t.assignee?.[0]?.toUpperCase()||'?'}</div>
+      <div class="sub-info">
+        <div class="sub-name">${t.assignee} <span class="sub-version">v${t.submissions.length}</span></div>
+        <div class="sub-task">📝 ${t.title}${proj?' &nbsp;·&nbsp; 📁 '+proj.name:''}</div>
+        <div class="sub-time">
+          Submitted ${fmtAgo(lastSub?.submittedAt)}
+          ${fileCount?` · <span style="color:var(--accent);">📎 ${fileCount} file(s)</span>`:''}
+          ${linkCount?` · <span style="color:var(--info);">🔗 ${linkCount} link(s)</span>`:''}
+        </div>
+      </div>
+      ${statusBadge(t)}
+      ${isNew?`<button class="btn btn-primary btn-sm" onclick="openReviewModal('${t.id}')">🔍 Review</button>`:`<button class="btn btn-ghost btn-sm" onclick="openReviewModal('${t.id}')">👁 View</button>`}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  REVIEWS
+// ═══════════════════════════════════════════
+function renderReviews(){
+  const d=getData();
+  const tasks=d.tasks.filter(t=>t.submissions?.some(s=>s.review));
+  const tbody=document.getElementById('reviewTableBody');
+  if(!tasks.length){tbody.innerHTML='<tr><td colspan="8"><div class="empty-state" style="padding:30px;"><div class="empty-icon">🔍</div><p>No reviews yet.</p></div></td></tr>';return;}
+  tbody.innerHTML=tasks.flatMap(t=>{
+    const proj=d.projects.find(p=>p.id===t.projectId);
+    return t.submissions.filter(s=>s.review).map(s=>`<tr>
+      <td style="font-weight:600;font-size:13px;">${t.title}</td>
+      <td>${workerChip(t.assignee)}</td>
+      <td style="font-size:12px;color:var(--text2);">${proj?proj.name:'—'}</td>
+      <td style="text-align:center;"><span class="sub-version">v${s.version}</span></td>
+      <td><div style="font-size:16px;font-weight:800;color:${s.review.score>=80?'var(--success)':s.review.score>=60?'var(--warning)':'var(--danger)'};">${s.review.score}/100</div></td>
+      <td>${s.status==='approved'?'<span class="badge badge-approved">Approved</span>':s.status==='revision'?'<span class="badge badge-revisionrequired">Revision</span>':'<span class="badge badge-inactive">—</span>'}</td>
+      <td style="font-size:11px;color:var(--text2);">${fmtDate(s.review.reviewedAt)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openReviewModal('${t.id}')">👁 View</button></td>
+    </tr>`);
+  }).join('');
+}
+
+// Review Modal
+const scoreFields=['quality','accuracy','completeness','research','creativity','technical'];
+function openReviewModal(taskId){
+  reviewTargetTaskId=taskId;
+  const d=getData();const t=d.tasks.find(x=>x.id===taskId);if(!t)return;
+  const lastSub=t.submissions?.slice(-1)[0];
+  document.getElementById('reviewModalTitle').textContent=`🔍 Review — ${t.title}`;
+  // Submission tab
+  document.getElementById('reviewSubContent').innerHTML=`
+    <div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;">
+      ${statusBadge(t)}<span class="sub-version">v${t.submissions?.length||1}</span>
+      <span style="font-size:12px;color:var(--text2);">Submitted by <strong>${t.assignee}</strong> · ${fmtAgo(lastSub?.submittedAt)}</span>
+    </div>
+    <div class="form-group"><label class="form-label">Submission Notes</label><div style="font-size:13px;color:var(--text2);margin-top:6px;line-height:1.6;background:var(--bg3);border-radius:var(--radius-sm);padding:12px;">${lastSub?.notes||'No notes provided.'}</div></div>
+    ${lastSub?.links?.length?`<div class="form-group"><label class="form-label">Submitted Links</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">${lastSub.links.map(l=>`<a href="${l}" target="_blank" class="attachment-chip">🔗 ${l.length>40?l.slice(0,40)+'…':l}</a>`).join('')}</div></div>`:''}
+    ${(lastSub?.files?.length||lastSub?.attachments?.length)?`<div class="form-group"><label class="form-label">📁 Cloud Proof Attachments (${(lastSub.files||lastSub.attachments||[]).length})</label><div class="attachment-grid">${(lastSub.files||lastSub.attachments||[]).map(f=>`<a href="${f.url}" target="_blank" class="attachment-chip" title="${f.name} (${(f.size/1024).toFixed(1)} KB)"><span>${f.type&&f.type.startsWith('image/')?'🖼️':f.name.endsWith('.zip')||f.name.endsWith('.rar')?'📦':f.name.endsWith('.pdf')?'📄':'📎'}</span><span>${f.name}</span><span style="font-size:9px;color:var(--text3);">(${(f.size/1024).toFixed(0)}KB)</span></a>`).join('')}</div></div>`:''}
+    ${t.acceptanceCriteria?.length?`<div class="form-group"><label class="form-label">Acceptance Criteria</label><div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">${t.acceptanceCriteria.map(c=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;"><span style="color:var(--success);">☐</span>${c.text}</div>`).join('')}</div></div>`:''}`;
+  // Score tab
+  const existReview=lastSub?.review;
+  document.getElementById('scoreGrid').innerHTML=scoreFields.map(field=>`
+    <div class="score-item"><label><span style="text-transform:capitalize;">${field}</span><span id="score-lbl-${field}">${existReview?existReview[field]:80}</span></label>
+    <input type="range" class="score-slider" id="score-${field}" min="0" max="100" value="${existReview?existReview[field]:80}" oninput="updateOverallScore()"/></div>`).join('');
+  document.getElementById('reviewFeedback').value=existReview?.feedback||'';
+  updateOverallScore();
+  // History tab
+  document.getElementById('reviewHistoryContent').innerHTML=`<div class="revision-history">${
+    (t.submissions||[]).map((s,i)=>`<div class="revision-item">
+      <div class="revision-header"><strong>Submission v${s.version||i+1}</strong><span style="font-size:11px;color:var(--text3);">${fmtDate(s.submittedAt)}</span>${s.status==='approved'?'<span class="badge badge-approved">Approved</span>':s.status==='revision'?'<span class="badge badge-revisionrequired">Revision</span>':''}</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.5;">${s.notes||'No notes.'}</div>
+      ${s.review?`<div style="font-size:11px;color:var(--accent2);margin-top:6px;">Score: ${s.review.score}/100 · ${s.review.feedback}</div>`:''}
+    </div>`).join('')
+  }</div>`;
+  const canReview=t.status==='submitted'||t.status==='resubmitted'||t.status==='underreview';
+  document.getElementById('reviewModalFooter').innerHTML=canReview?`
+    <button class="btn btn-danger" onclick="submitReview('revisionrequired')">🔄 Request Revision</button>
+    <button class="btn btn-success" onclick="submitReview('approved')">✅ Approve</button>
+    <button class="btn btn-ghost" onclick="closeReviewModal()">Close</button>`:`<button class="btn btn-ghost" onclick="closeReviewModal()">Close</button>`;
+  switchTab('reviewTab',0,document.querySelector('#reviewModal .modal-tab'));
+  document.getElementById('reviewModal').classList.add('open');
+}
+function updateOverallScore(){
+  const vals=scoreFields.map(f=>+document.getElementById('score-'+f)?.value||0);
+  const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+  const el=document.getElementById('overallScoreDisplay');
+  if(el)el.textContent=avg;
+  scoreFields.forEach(f=>{const l=document.getElementById('score-lbl-'+f);if(l)l.textContent=document.getElementById('score-'+f)?.value||80;});
+}
+function submitReview(decision){
+  const d=getData();const t=d.tasks.find(x=>x.id===reviewTargetTaskId);if(!t)return;
+  if(!t.submissions)t.submissions=[];
+  const lastSub=t.submissions.slice(-1)[0];if(!lastSub)return;
+  const scores={};scoreFields.forEach(f=>scores[f]=+document.getElementById('score-'+f)?.value||0);
+  const overall=Math.round(scoreFields.map(f=>scores[f]).reduce((a,b)=>a+b,0)/scoreFields.length);
+  lastSub.review={...scores,score:overall,feedback:document.getElementById('reviewFeedback').value.trim(),reviewedAt:now(),reviewedBy:'Admin'};
+  lastSub.status=decision==='approved'?'approved':'revision';
+  t.status=decision;
+  if(decision==='approved'){
+    addActivity(`Admin <strong>approved</strong> submission v${t.submissions.length} by <strong>${t.assignee}</strong> for task "<strong>${t.title}</strong>" — Score: ${overall}/100`,'approved');
+    addNotification(`✅ ${t.assignee}'s submission for "${t.title}" has been approved!`);
+  }else{
+    addActivity(`Admin requested <strong>revision</strong> on submission v${t.submissions.length} by <strong>${t.assignee}</strong> for task "<strong>${t.title}</strong>"`,'revision');
+    addNotification(`🔄 Revision requested for "${t.title}" from ${t.assignee}.`);
+  }
+  setData(d);closeReviewModal();renderSubmissions();renderReviews();renderNotifBadge();toast(decision==='approved'?'Submission approved! 🎉':'Revision requested.','success');
+}
+function closeReviewModal(){document.getElementById('reviewModal').classList.remove('open');}
+
+// ═══════════════════════════════════════════
+//  CALENDAR
+// ═══════════════════════════════════════════
+function initCalendar(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();}
+function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
+function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function renderCalendar(){
+  const d=getData();const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calTitle').textContent=`${months[calMonth]} ${calYear}`;
+  const firstDay=new Date(calYear,calMonth,1).getDay();const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const today=new Date().toDateString();
+  // Build event map
+  const events={};
+  d.tasks.forEach(t=>{if(!t.dueDate)return;const k=new Date(t.dueDate).toDateString();if(!events[k])events[k]=[];events[k].push({text:t.title,cls:isOverdue(t.dueDate,t.status)?'ev-overdue':'ev-task',id:t.id});});
+  d.projects.forEach(p=>{if(!p.deadline)return;const k=new Date(p.deadline).toDateString();if(!events[k])events[k]=[];events[k].push({text:'📁 '+p.name,cls:'ev-project'});});
+  let html='';
+  for(let i=0;i<firstDay;i++)html+=`<div class="cal-day other-month"></div>`;
+  for(let day=1;day<=daysInMonth;day++){
+    const date=new Date(calYear,calMonth,day);const key=date.toDateString();const dayEvents=events[key]||[];
+    html+=`<div class="cal-day ${date.toDateString()===today?'today':''}">
+      <div class="cal-day-num">${day}</div>
+      ${dayEvents.slice(0,3).map(ev=>`<div class="cal-event ${ev.cls}" ${ev.id?`onclick="openDetail('${ev.id}')"`:''} title="${ev.text}">${ev.text}</div>`).join('')}
+      ${dayEvents.length>3?`<div style="font-size:9px;color:var(--text3);">+${dayEvents.length-3} more</div>`:''}
+    </div>`;
+  }
+  document.getElementById('calendarGrid').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════
+//  ANALYTICS
+// ═══════════════════════════════════════════
+function renderAnalytics(){
+  const d=getData();const tasks=d.tasks;const workers=d.workers;
+  const completed=tasks.filter(t=>t.status==='completed'||t.status==='approved').length;
+  const overdue=tasks.filter(t=>isOverdue(t.dueDate,t.status)).length;
+  const totalReviewed=tasks.filter(t=>t.submissions?.some(s=>s.review)).length;
+  const revisionCount=tasks.filter(t=>t.submissions&&t.submissions.length>1).length;
+  const compRate=tasks.length?Math.round(completed/tasks.length*100):0;
+  const revRate=totalReviewed?Math.round(revisionCount/totalReviewed*100):0;
+
+  // Destroy existing charts safely
+  if(window.chartInstances){
+    Object.values(window.chartInstances).forEach(c=>{try{c?.destroy();}catch{}});
+  }
+  window.chartInstances={};
+
+  document.getElementById('chartGrid').innerHTML=`
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">📊 Task Status Distribution</div>
+          <div class="chart-subtitle">Breakdown of tasks across all workflow stages</div>
+        </div>
+      </div>
+      <div class="chart-canvas-wrap"><canvas id="chart-status"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">🎯 Priority Breakdown</div>
+          <div class="chart-subtitle">Task count categorized by urgency level</div>
+        </div>
+      </div>
+      <div class="chart-canvas-wrap"><canvas id="chart-priority"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">📈 7-Day Completion Trend</div>
+          <div class="chart-subtitle">Daily completed & approved task count</div>
+        </div>
+      </div>
+      <div class="chart-canvas-wrap"><canvas id="chart-trend"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-header">
+        <div>
+          <div class="chart-title">🔢 Key Performance Indicators</div>
+          <div class="chart-subtitle">High-level team productivity overview</div>
+        </div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-lbl">Completion Rate</span>
+            <div class="metric-icon" style="background:rgba(0,212,170,0.15);color:var(--success);">🎯</div>
+          </div>
+          <div class="metric-val" style="color:var(--success);">${compRate}%</div>
+          <div class="metric-mini-bar"><div class="metric-mini-fill" style="width:${compRate}%;background:var(--success);"></div></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-lbl">Overdue Tasks</span>
+            <div class="metric-icon" style="background:${overdue>0?'rgba(255,77,109,0.15)':'rgba(255,183,3,0.15)'};color:${overdue>0?'var(--danger)':'var(--warning)'};">⚠️</div>
+          </div>
+          <div class="metric-val" style="color:${overdue>0?'var(--danger)':'var(--text)'};">${overdue}</div>
+          <div style="font-size:10px;color:${overdue>0?'var(--danger)':'var(--text3)'};font-weight:600;">${overdue>0?'Requires immediate attention':'All deadlines on track'}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-lbl">Revision Rate</span>
+            <div class="metric-icon" style="background:rgba(167,139,250,0.15);color:var(--purple);">🔄</div>
+          </div>
+          <div class="metric-val" style="color:var(--purple);">${revRate}%</div>
+          <div class="metric-mini-bar"><div class="metric-mini-fill" style="width:${revRate}%;background:var(--purple);"></div></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-lbl">Total Reviewed</span>
+            <div class="metric-icon" style="background:rgba(56,189,248,0.15);color:var(--info);">🔍</div>
+          </div>
+          <div class="metric-val" style="color:var(--info);">${totalReviewed}</div>
+          <div style="font-size:10px;color:var(--text2);font-weight:500;">Evaluated submissions</div>
+        </div>
+      </div>
+    </div>`;
+
+  const chartFont={family:'Inter',size:11,weight:'500'};
+  const gridColor='rgba(255,255,255,0.05)';
+  const textColor='#8B89C4';
+
+  // 1. Status Doughnut Chart
+  const statusCounts=['assigned','accepted','inprogress','submitted','underreview','revisionrequired','completed'].map(s=>tasks.filter(t=>t.status===s).length);
+  window.chartInstances.status=new Chart(document.getElementById('chart-status'),{
+    type:'doughnut',
+    data:{
+      labels:['Assigned','Accepted','In Progress','Submitted','Under Review','Revision','Completed'],
+      datasets:[{
+        data:statusCounts,
+        backgroundColor:['#38BDF8','#6C63FF','#FFB703','#A78BFA','#FF8C00','#FF4D6D','#00D4AA'],
+        borderWidth:2,
+        borderColor:'var(--bg2)',
+        hoverOffset:6
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout:'70%',
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{
+            color:textColor,
+            font:chartFont,
+            boxWidth:8,
+            boxHeight:8,
+            usePointStyle:true,
+            pointStyle:'circle',
+            padding:12
+          }
+        },
+        tooltip:{
+          callbacks:{
+            label:function(context){
+              const val=context.raw||0;
+              const total=statusCounts.reduce((a,b)=>a+b,0);
+              const pct=total?Math.round((val/total)*100):0;
+              return ` ${context.label}: ${val} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // 2. Priority Breakdown Bar Chart
+  const priCounts=['critical','high','medium','low'].map(p=>tasks.filter(t=>t.priority===p).length);
+  window.chartInstances.priority=new Chart(document.getElementById('chart-priority'),{
+    type:'bar',
+    data:{
+      labels:['Critical','High','Medium','Low'],
+      datasets:[{
+        data:priCounts,
+        backgroundColor:['#FF4D6D','#FFB703','#38BDF8','#00D4AA'],
+        borderRadius:8,
+        borderSkipped:false,
+        barPercentage:0.55
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:function(context){
+              return ` Tasks: ${context.raw}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{color:textColor,font:chartFont}
+        },
+        y:{
+          beginAtZero:true,
+          grid:{color:gridColor},
+          ticks:{
+            color:textColor,
+            font:chartFont,
+            stepSize:1,
+            precision:0
+          }
+        }
+      }
+    }
+  });
+
+  // 3. 7-Day Completion Trend Line Chart
+  const trend=[];const labels=[];
+  for(let i=6;i>=0;i--){
+    const dt=new Date();dt.setDate(dt.getDate()-i);
+    labels.push(dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+    const ds=dt.toDateString();
+    trend.push(tasks.filter(t=>{
+      const sub=t.submissions?.slice(-1)[0];
+      return(t.status==='completed'||t.status==='approved')&&sub&&new Date(sub.submittedAt).toDateString()===ds;
+    }).length);
+  }
+
+  const trendCtx=document.getElementById('chart-trend')?.getContext('2d');
+  let trendGradient='rgba(0,212,170,0.15)';
+  if(trendCtx){
+    const g=trendCtx.createLinearGradient(0,0,0,200);
+    g.addColorStop(0,'rgba(0,212,170,0.35)');
+    g.addColorStop(1,'rgba(0,212,170,0.0)');
+    trendGradient=g;
+  }
+
+  window.chartInstances.trend=new Chart(document.getElementById('chart-trend'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'Completed Tasks',
+        data:trend,
+        borderColor:'#00D4AA',
+        borderWidth:3,
+        backgroundColor:trendGradient,
+        tension:0.4,
+        fill:true,
+        pointBackgroundColor:'#00D4AA',
+        pointBorderColor:'var(--bg2)',
+        pointBorderWidth:2,
+        pointRadius:4,
+        pointHoverRadius:7
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label:function(context){
+              return ` Completed: ${context.raw} task${context.raw!==1?'s':''}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{color:textColor,font:{family:'Inter',size:10}}
+        },
+        y:{
+          beginAtZero:true,
+          grid:{color:gridColor},
+          ticks:{
+            color:textColor,
+            font:chartFont,
+            stepSize:1,
+            precision:0
+          }
+        }
+      }
+    }
+  });
+
+  // Worker performance table
+  const wpTable=document.getElementById('workerPerfTable');
+  wpTable.innerHTML=`<thead><tr><th>Worker</th><th>Completed Tasks</th><th>On-Time Rate</th><th>Avg Score</th><th>Performance Score</th></tr></thead><tbody></tbody>`;
+  const tbody=wpTable.querySelector('tbody');
+  
+  if(!workers.length){
+    tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">No workers registered yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML=workers.map(w=>{
+    const wt=tasks.filter(t=>t.assignee===w.name);
+    const done=wt.filter(t=>t.status==='completed'||t.status==='approved').length;
+    const ontime=wt.filter(t=>(t.status==='completed'||t.status==='approved')&&t.dueDate&&new Date(t.dueDate)>=new Date(t.submissions?.slice(-1)[0]?.submittedAt||now())).length;
+    const ontimePct=done?Math.round(ontime/done*100):0;
+    const scores=wt.flatMap(t=>t.submissions?.filter(s=>s.review).map(s=>s.review.score)||[]);
+    const avgScore=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):0;
+    const perf=done>0?Math.round((ontimePct*0.5)+(avgScore*0.5)):0;
+    return `<tr>
+      <td class="td-name">${workerChip(w.name)}</td>
+      <td style="font-weight:700;color:var(--success);">${done}</td>
+      <td style="font-weight:600;">${done>0?ontimePct+'%':'—'}</td>
+      <td style="font-weight:600;">${avgScore>0?avgScore+'/100':'—'}</td>
+      <td style="min-width:140px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="score-bar" style="flex:1;"><div class="score-bar-fill" style="width:${perf}%"></div></div>
+          <span style="font-size:11px;font-weight:700;color:${perf>=80?'var(--success)':perf>=50?'var(--warning)':'var(--text3)'};min-width:32px;">${perf>0?perf+'%':'—'}</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  ACTIVITY LOG
+// ═══════════════════════════════════════════
+function renderActivity(){
+  const d=getData();const feed=document.getElementById('activityFeed');
+  if(!d.activity.length){feed.innerHTML='<div class="empty-state"><div class="empty-icon">🕐</div><p>No activity yet.</p></div>';return;}
+  feed.innerHTML=d.activity.map(a=>`<div class="activity-item"><div class="activity-dot dot-${a.type}"></div><div class="activity-text">${a.action}</div><div class="activity-time">${fmtAgo(a.at)}</div></div>`).join('');
+}
+function clearActivity(){if(!confirm('Clear all activity?'))return;const d=getData();d.activity=[];setData(d);renderActivity();}
+
+// ═══════════════════════════════════════════
+//  NOTIFICATIONS PAGE
+// ═══════════════════════════════════════════
+function renderNotifPage(){
+  const d=getData();const el=document.getElementById('notifPageList');
+  if(!d.notifications.length){el.innerHTML='<div class="empty-state" style="padding:40px;"><div class="empty-icon">🔔</div><p>No notifications.</p></div>';return;}
+  el.innerHTML=d.notifications.map(n=>`<div class="notif-item ${n.read?'':'unread'}" onclick="markNotifRead('${n.id}');renderNotifPage()">
+    <div style="font-size:13px;">${n.msg}</div><div class="notif-time">${fmtAgo(n.at)}</div>
+  </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════
+function switchSettingsTab(name,el){document.querySelectorAll('.settings-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.settings-nav-item').forEach(i=>i.classList.remove('active'));document.getElementById('settings-'+name).classList.add('active');el.classList.add('active');}
+function saveOrgSettings(){toast('Settings saved!','success');}
+function renderSettings(){renderDepts();renderRoles();populateCloudForm();}
+function saveCloudConfig(){
+  const apiKey=document.getElementById('fbApiKey')?.value.trim();
+  const projectId=document.getElementById('fbProjectId')?.value.trim();
+  if(!apiKey||!projectId){toast('API Key and Project ID are required','error');return;}
+  const config={apiKey,authDomain:document.getElementById('fbAuthDomain')?.value.trim(),projectId,storageBucket:document.getElementById('fbStorageBucket')?.value.trim(),messagingSenderId:document.getElementById('fbSenderId')?.value.trim(),appId:document.getElementById('fbAppId')?.value.trim()};
+  TaskFlowCloud.saveConfig(config);
+  TaskFlowCloud.init();
+  toast('Firebase Cloud Config Saved! Initializing…','success');
+  setTimeout(()=>syncLocalToCloud(),1500);
+}
+function syncLocalToCloud(){
+  const d=getData();
+  if(TaskFlowCloud.isCloudActive){
+    TaskFlowCloud.pushToCloud(d).then(ok=>{
+      if(ok)toast('Local data successfully pushed to Cloud! 🚀','success');
+      else toast('Sync blocked by Firestore Rules. Please publish "allow read, write: if true;" in Firebase Console.','error');
+    });
+  }else{
+    toast('Cloud is not connected. Please enter Firebase credentials first.','warning');
+  }
+}
+function disconnectCloud(){if(!confirm('Disconnect Cloud? Local storage mode will be restored.'))return;localStorage.removeItem('taskflow_firebase_config');location.reload();}
+function populateCloudForm(){
+  const cfg=TaskFlowCloud.getSavedConfig();if(!cfg)return;
+  if(document.getElementById('fbApiKey'))document.getElementById('fbApiKey').value=cfg.apiKey||'';
+  if(document.getElementById('fbAuthDomain'))document.getElementById('fbAuthDomain').value=cfg.authDomain||'';
+  if(document.getElementById('fbProjectId'))document.getElementById('fbProjectId').value=cfg.projectId||'';
+  if(document.getElementById('fbStorageBucket'))document.getElementById('fbStorageBucket').value=cfg.storageBucket||'';
+  if(document.getElementById('fbSenderId'))document.getElementById('fbSenderId').value=cfg.messagingSenderId||'';
+  if(document.getElementById('fbAppId'))document.getElementById('fbAppId').value=cfg.appId||'';
+}
+function addDept(){const v=document.getElementById('newDeptInput').value.trim();if(!v)return;const d=getData();if(!d.settings)d.settings={};if(!d.settings.depts)d.settings.depts=[];if(!d.settings.depts.includes(v)){d.settings.depts.push(v);setData(d);}document.getElementById('newDeptInput').value='';renderDepts();}
+function addRole(){const v=document.getElementById('newRoleInput').value.trim();if(!v)return;const d=getData();if(!d.settings)d.settings={};if(!d.settings.roles)d.settings.roles=[];if(!d.settings.roles.includes(v)){d.settings.roles.push(v);setData(d);}document.getElementById('newRoleInput').value='';renderRoles();}
+function renderDepts(){const d=getData();const depts=(d.settings?.depts)||['Engineering','Design','Marketing','Research'];document.getElementById('deptList').innerHTML=depts.map(dept=>`<span class="badge badge-active" style="cursor:pointer;">${dept}</span>`).join('');}
+function renderRoles(){const d=getData();const roles=(d.settings?.roles)||['Frontend Developer','Backend Engineer','UI/UX Designer','Product Manager','Research Analyst'];document.getElementById('roleList').innerHTML=roles.map(r=>`<span class="badge badge-invited" style="cursor:pointer;">${r}</span>`).join('');}
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+function workerChip(name){if(!name)return'<span style="color:var(--text3);font-size:12px;">Unassigned</span>';return`<div class="assignee-chip"><div class="assignee-avatar">${name[0].toUpperCase()}</div>${name}</div>`;}
+function statusBadge(t){
+  const map={assigned:'badge-assigned Assigned',accepted:'badge-accepted Accepted',inprogress:'badge-inprogress In Progress',submitted:'badge-submitted Submitted',underreview:'badge-underreview-task Under Review',revisionrequired:'badge-revisionrequired Revision Required',resubmitted:'badge-resubmitted Resubmitted',approved:'badge-approved Approved',completed:'badge-done Completed'};
+  if(isOverdue(t.dueDate,t.status))return'<span class="badge badge-rejected">Overdue</span>';
+  const v=map[t.status]||'badge-inactive Unknown';return`<span class="badge ${v.split(' ')[0]}">${v.split(' ').slice(1).join(' ')}</span>`;
+}
+function populateAssigneeSelect(selected=''){const d=getData();const sel=document.getElementById('fAssignee');if(!sel)return;sel.innerHTML='<option value="">Select worker…</option>'+d.workers.filter(w=>w.status==='active'||w.status==='invited').map(w=>`<option value="${w.name}" ${w.name===selected?'selected':''}>${w.name} — ${w.role||'Worker'}</option>`).join('');}
+function populateProjectSelect(selected=''){const d=getData();const sel=document.getElementById('fProject');if(!sel)return;sel.innerHTML='<option value="">No Project</option>'+d.projects.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.name}</option>`).join('');}
+function populateWorkerFilter(elId){const d=getData();const sel=document.getElementById(elId);if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">All Workers</option>'+d.workers.map(w=>`<option value="${w.name}" ${w.name===cur?'selected':''}>${w.name}</option>`).join('');}
+function populateProjectFilter(elId){const d=getData();const sel=document.getElementById(elId);if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">All Projects</option>'+d.projects.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${p.name}</option>`).join('');}
+function renderCurrentPage(){const active=document.querySelector('.page.active');if(!active)return;navigate(active.id.replace('page-',''));}
+function switchTab(prefix,idx,el){if(!el)return;const modal=el.closest('.modal-overlay');if(!modal)return;modal.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));modal.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'));const panel=document.getElementById(prefix+'-'+idx);if(panel)panel.classList.add('active');el.classList.add('active');}
+function exportTasksCSV(){const d=getData();const rows=[['Title','Project','Assignee','Priority','Status','Due Date','Submissions'],...d.tasks.map(t=>[t.title,d.projects.find(p=>p.id===t.projectId)?.name||'',t.assignee,t.priority,t.status,t.dueDate||'',t.submissions?.length||0])];const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='tasks.csv';a.click();}
+function toast(msg,type='info'){const c=document.getElementById('toast-container');const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<span>${{success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'}[type]||'🔔'}</span><span>${msg}</span>`;c.appendChild(el);setTimeout(()=>{el.style.animation='toastOut 0.3s ease forwards';setTimeout(()=>el.remove(),300);},3500);}
+function copyField(id){const el=document.getElementById(id);navigator.clipboard?.writeText(el.value).then(()=>toast('Copied!','success'));}
+function togglePwd(inputId,iconEl){const input=document.getElementById(inputId);if(input.type==='password'){input.type='text';iconEl.textContent='🙈';}else{input.type='password';iconEl.textContent='👁';}}
+
+// Password hashing
+async function hashPassword(password){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(password));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+document.getElementById('newTaskBtn').addEventListener('click',openTaskModal);
+initCalendar();
+renderNotifBadge();
+navigate('dashboard');
+
+// Cross-tab sync
+window.addEventListener('storage',e=>{if(e.key===STORAGE_KEY){renderNotifBadge();renderCurrentPage();}});
+
+// Demo seed (no applications — manual entry only)
+(async function seedDemo(){
+  const d=getData();
+  if(d.workers.length||d.tasks.length)return;
+  const[h1,h2,h3]=await Promise.all([hashPassword('alice123'),hashPassword('bob123'),hashPassword('carol123')]);
+  d.workers=[
+    {id:uid(),name:'Alice Chen',email:'alice@example.com',role:'Frontend Developer',team:'Engineering',department:'Engineering',loginId:'alice.chen',passwordHash:h1,status:'active',startDate:'2025-06-01',joinedDate:now()},
+    {id:uid(),name:'Bob Martinez',email:'bob@example.com',role:'Backend Engineer',team:'Engineering',department:'Engineering',loginId:'bob.martinez',passwordHash:h2,status:'active',startDate:'2025-06-01',joinedDate:now()},
+    {id:uid(),name:'Carol Smith',email:'carol@example.com',role:'UI/UX Designer',team:'Design',department:'Design',loginId:'carol.smith',passwordHash:h3,status:'active',startDate:'2025-07-01',joinedDate:now()}
+  ];
+  const proj1=uid();const proj2=uid();
+  d.projects=[
+    {id:proj1,name:'AI Receptionist',description:'Build an AI-powered receptionist system for automated visitor management.',status:'active',deadline:new Date(Date.now()+30*86400000).toISOString().split('T')[0],createdAt:now()},
+    {id:proj2,name:'Marketing Portal',description:'Internal portal for managing marketing campaigns and assets.',status:'active',deadline:new Date(Date.now()+45*86400000).toISOString().split('T')[0],createdAt:now()}
+  ];
+  const t1=uid();const t2=uid();const t3=uid();const t4=uid();const t5=uid();
+  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+  const nextWeek=new Date();nextWeek.setDate(nextWeek.getDate()+7);
+  const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
+  const fmt=d2=>d2.toISOString().split('T')[0];
+  d.tasks=[
+    {id:t1,title:'Market Research — AI Receptionist Competitors',assignee:'Alice Chen',projectId:proj1,priority:'high',status:'submitted',dueDate:fmt(nextWeek),startDate:fmt(new Date()),estimatedHours:8,tags:['research'],objective:'Identify top 10 AI receptionist competitors',instructions:'Research the top 10 companies building AI receptionist products. Include pricing, features, and target market.',deliverables:[{type:'Spreadsheet',label:'Comparison matrix'},{type:'Document',label:'Research report'}],acceptanceCriteria:[{text:'Research 20+ companies',checked:false},{text:'Include pricing information',checked:false},{text:'Include sources/links',checked:false}],resources:[],submissionRequired:true,reviewRequired:true,submissions:[{version:1,submittedAt:new Date(Date.now()-720000).toISOString(),notes:'I have researched 22 companies across the AI receptionist space. The spreadsheet covers pricing, features, and target market. Main competitors are Receptionist.ai, Dialpad, and OpenPhone.',links:['https://docs.google.com/spreadsheets/example'],status:'pending',review:null}],createdAt:now()},
+    {id:t2,title:'UI Wireframes — Homepage',assignee:'Carol Smith',projectId:proj1,priority:'medium',status:'inprogress',dueDate:fmt(tomorrow),startDate:fmt(new Date()),estimatedHours:6,tags:['design','ui'],objective:'Design homepage wireframes',instructions:'Create low and high-fidelity wireframes for the AI Receptionist homepage.',deliverables:[{type:'Image',label:'Wireframe files'},{type:'Website URL',label:'Figma prototype link'}],acceptanceCriteria:[{text:'Mobile and desktop versions',checked:false},{text:'Includes hero section',checked:false}],resources:[{type:'URL',label:'Brand Guidelines',value:'https://example.com/brand'}],submissionRequired:true,reviewRequired:true,submissions:[],createdAt:now()},
+    {id:t3,title:'Fix Login API Bug',assignee:'Bob Martinez',projectId:proj1,priority:'critical',status:'assigned',dueDate:fmt(yesterday),startDate:fmt(new Date()),estimatedHours:4,tags:['bug','backend'],objective:'Fix session token expiry bug',instructions:'The login API returns 401 after 30 minutes even with a valid refresh token. Investigate and fix.',deliverables:[{type:'GitHub URL',label:'PR link'}],acceptanceCriteria:[{text:'Session persists for 24 hours',checked:false},{text:'Unit test added',checked:false}],resources:[],submissionRequired:true,reviewRequired:true,submissions:[],createdAt:now()},
+    {id:t4,title:'Campaign Analytics Dashboard',assignee:'Bob Martinez',projectId:proj2,priority:'medium',status:'completed',dueDate:fmt(yesterday),startDate:fmt(new Date()),estimatedHours:12,tags:['analytics','frontend'],objective:'Build campaign analytics page',instructions:'Create a dashboard showing campaign performance metrics.',deliverables:[{type:'GitHub URL',label:'Repository link'}],acceptanceCriteria:[{text:'Charts for impressions, clicks, conversions',checked:false}],resources:[],submissionRequired:true,reviewRequired:true,submissions:[{version:1,submittedAt:new Date(Date.now()-3600000).toISOString(),notes:'Dashboard is live with all requested charts. Used Chart.js for visualizations.',links:[],status:'approved',review:{quality:88,accuracy:90,completeness:85,research:80,creativity:82,technical:92,score:86,feedback:'Excellent work! The charts are clear and the UX is intuitive.',reviewedAt:now(),reviewedBy:'Admin'}}],createdAt:now()},
+    {id:t5,title:'Write API Documentation',assignee:'Alice Chen',projectId:proj2,priority:'low',status:'revisionrequired',dueDate:fmt(nextWeek),startDate:fmt(new Date()),estimatedHours:10,tags:['docs'],objective:'Document all API endpoints',instructions:'Document every REST endpoint in the developer portal.',deliverables:[{type:'Document',label:'API docs PDF'}],acceptanceCriteria:[{text:'All endpoints documented',checked:false},{text:'Includes example requests',checked:false}],resources:[],submissionRequired:true,reviewRequired:true,submissions:[{version:1,submittedAt:new Date(Date.now()-7200000).toISOString(),notes:'First draft of API documentation.',links:[],status:'revision',review:{quality:65,accuracy:70,completeness:55,research:60,creativity:50,technical:70,score:62,feedback:'Good start, but many endpoints are missing example responses. Please add request/response examples for each endpoint.',reviewedAt:new Date(Date.now()-3600000).toISOString(),reviewedBy:'Admin'}}],createdAt:now()},
+  ];
+  d.activity=[
+    {id:uid(),action:'Admin assigned task "<strong>Market Research — AI Receptionist Competitors</strong>" to <strong>Alice Chen</strong> on project <strong>AI Receptionist</strong>',type:'created',at:new Date(Date.now()-86400000).toISOString()},
+    {id:uid(),action:'<strong>Alice Chen</strong> submitted Market Research — Version 1',type:'submitted',at:new Date(Date.now()-720000).toISOString()},
+    {id:uid(),action:'Admin approved submission v1 by <strong>Bob Martinez</strong> for task "<strong>Campaign Analytics Dashboard</strong>" — Score: 86/100',type:'approved',at:new Date(Date.now()-3600000).toISOString()},
+    {id:uid(),action:'Admin requested <strong>revision</strong> on submission v1 by <strong>Alice Chen</strong> for task "<strong>Write API Documentation</strong>"',type:'revision',at:new Date(Date.now()-3600000).toISOString()},
+    {id:uid(),action:'Platform initialized with demo data',type:'created',at:now()},
+  ];
+  d.notifications=[
+    {id:uid(),msg:'📤 Alice Chen submitted "Market Research" — v1. Ready to review.',type:'submission',read:false,at:new Date(Date.now()-720000).toISOString()},
+    {id:uid(),msg:'⚠️ Task "Fix Login API Bug" is overdue!',type:'overdue',read:false,at:now()},
+  ];
+  setData(d);
+  renderNotifBadge();
+  navigate('dashboard');
+})();
+</script>
+
+<!-- TROYZ SOLUTIONS WATERMARK -->
+<div class="troyz-watermark">
+  <span class="troyz-watermark-icon">⚡</span>
+  <span>Troyz Solutions</span>
+</div>
+
+</body>
+</html>

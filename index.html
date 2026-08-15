@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TaskFlow — Troyz Solutions Enterprise Hub</title>
+  <meta name="description" content="TaskFlow by Troyz Solutions — Cloud-connected Admin Dashboard and Worker Portal for agile team management."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --accent: #6C63FF;
+      --accent2: #00D4AA;
+      --accent-glow: rgba(108, 99, 255, 0.35);
+      --accent2-glow: rgba(0, 212, 170, 0.35);
+      --bg: #0A0A14;
+      --bg2: #0F0F1E;
+      --bg3: #141428;
+      --glass: rgba(255, 255, 255, 0.04);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --text: #F0EFFF;
+      --text2: #8B89C4;
+      --text3: #56538E;
+      --radius: 20px;
+      --radius-sm: 12px;
+      --transition: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .bg-glow-1 {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(108, 99, 255, 0.15) 0%, transparent 70%);
+      top: -100px;
+      left: -100px;
+      pointer-events: none;
+    }
+    .bg-glow-2 {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 212, 170, 0.12) 0%, transparent 70%);
+      bottom: -100px;
+      right: -100px;
+      pointer-events: none;
+    }
+    .hub-container {
+      max-width: 960px;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+    .hub-header {
+      margin-bottom: 44px;
+    }
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 18px;
+    }
+    .hub-title {
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1.15;
+      background: linear-gradient(135deg, #FFFFFF 30%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 14px;
+    }
+    .hub-subtitle {
+      font-size: 16px;
+      color: var(--text2);
+      max-width: 580px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .hub-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 36px;
+    }
+    @media (max-width: 720px) {
+      .hub-grid { grid-template-columns: 1fr; }
+    }
+    .hub-card {
+      background: var(--bg2);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 36px 30px;
+      text-align: left;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+    .hub-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, var(--card-glow, rgba(108, 99, 255, 0.1)), transparent 70%);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .hub-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--card-border, var(--accent));
+      box-shadow: 0 20px 60px var(--card-shadow, var(--accent-glow));
+    }
+    .hub-card:hover::before {
+      opacity: 1;
+    }
+    .hub-card.admin {
+      --card-glow: rgba(108, 99, 255, 0.15);
+      --card-border: var(--accent);
+      --card-shadow: var(--accent-glow);
+    }
+    .hub-card.worker {
+      --card-glow: rgba(0, 212, 170, 0.15);
+      --card-border: var(--accent2);
+      --card-shadow: var(--accent2-glow);
+    }
+    .card-icon-wrap {
+      width: 58px;
+      height: 58px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      margin-bottom: 20px;
+      background: var(--bg3);
+      border: 1px solid var(--glass-border);
+    }
+    .admin .card-icon-wrap { background: linear-gradient(135deg, rgba(108, 99, 255, 0.2), rgba(167, 139, 250, 0.1)); border-color: rgba(108, 99, 255, 0.3); }
+    .worker .card-icon-wrap { background: linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(56, 189, 248, 0.1)); border-color: rgba(0, 212, 170, 0.3); }
+    .card-title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .card-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 28px;
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .card-features li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-features li span {
+      color: var(--accent2);
+      font-weight: 700;
+    }
+    .card-action {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 13px;
+      background: var(--bg3);
+      border: 1px solid var(--glass-border);
+      transition: all var(--transition);
+    }
+    .admin .card-action { color: var(--accent2); }
+    .worker .card-action { color: var(--accent2); }
+    .hub-card:hover .card-action {
+      background: var(--text);
+      color: var(--bg);
+    }
+    .hub-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text3);
+    }
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent2);
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent2);
+      box-shadow: 0 0 10px var(--accent2);
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-glow-1"></div>
+<div class="bg-glow-2"></div>
+
+<div class="hub-container">
+  <header class="hub-header">
+    <div class="brand-badge">⚡ Troyz Solutions Enterprise Hub</div>
+    <h1 class="hub-title">TaskFlow Management Suite</h1>
+    <p class="hub-subtitle">
+      Real-time collaborative task assigning, submission proof reviews, and workforce management powered by Firebase Cloud.
+    </p>
+  </header>
+
+  <div class="hub-grid">
+    <!-- ADMIN PANEL -->
+    <a href="./Work%20Assigning%20Pannel/" class="hub-card admin" id="launchAdminBtn">
+      <div>
+        <div class="card-icon-wrap">🏢</div>
+        <h2 class="card-title">Admin Management Panel</h2>
+        <p class="card-desc">
+          Full administrative workspace for project managers. Assign tasks, track Kanban stages, review submissions, and manage team workers.
+        </p>
+        <ul class="card-features">
+          <li><span>✓</span> Kanban Board &amp; Task Assignment</li>
+          <li><span>✓</span> Proof Submissions Review &amp; Scoring</li>
+          <li><span>✓</span> 2-per-Row Visual Analytics</li>
+          <li><span>✓</span> Realtime Firebase Cloud Sync</li>
+        </ul>
+      </div>
+      <div class="card-action">
+        <span>Launch Admin Dashboard</span>
+        <span>→</span>
+      </div>
+    </a>
+
+    <!-- WORKER PORTAL -->
+    <a href="./Working%20Panel/" class="hub-card worker" id="launchWorkerBtn">
+      <div>
+        <div class="card-icon-wrap">🛠️</div>
+        <h2 class="card-title">Worker &amp; Intern Portal</h2>
+        <p class="card-desc">
+          Dedicated workflow portal for developers and interns. Access assigned milestones, upload proof deliverables, and receive feedback.
+        </p>
+        <ul class="card-features">
+          <li><span>✓</span> Secure SHA-256 Login Gate</li>
+          <li><span>✓</span> Priority Inbox &amp; Focus Tasks</li>
+          <li><span>✓</span> ☁️ Cloud File Uploads (Images, PDFs, ZIPs)</li>
+          <li><span>✓</span> Realtime Manager Review Feedback</li>
+        </ul>
+      </div>
+      <div class="card-action">
+        <span>Launch Worker Portal</span>
+        <span>→</span>
+      </div>
+    </a>
+  </div>
+
+  <footer class="hub-footer">
+    <div class="status-indicator">
+      <span class="status-dot"></span>
+      <span>Google Cloud Firestore &amp; Storage Active</span>
+    </div>
+    <span>•</span>
+    <span>Troyz Solutions © 2026</span>
+  </footer>
+</div>
+
+</body>
+</html>
