@@ -4,7 +4,13 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "Mobile Apps/**",
+      "build-apks.js",
+      "**/*.apk",
+      "**/*.aab",
+      "**/*.keystore",
+      "**/*.zip"
     ]
   }
 }

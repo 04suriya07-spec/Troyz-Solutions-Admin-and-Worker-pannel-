@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.web.troyz_solutions.twa",
+      "sha256_cert_fingerprints": [
+        "64:5A:35:02:D7:FB:F7:BF:79:BF:4A:B0:73:64:22:4A:1C:23:E1:8C:4C:83:AE:11:0E:4D:45:56:5F:A4:C2:C5",
+        "E3:DF:FE:C5:26:57:2B:71:CC:F1:AF:7A:C6:38:37:5C:43:1F:5C:0F:6E:B8:F0:82:50:79:72:F5:89:79:EC:9C"
+      ]
+    }
+  }
+]
