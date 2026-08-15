@@ -401,7 +401,7 @@
     /* ── MOBILE RESPONSIVE FIX ── */
 @media (max-width: 600px) {
 
-    /* Sidebar */
+    /* Mobile sidebar */
     #sidebar {
         width: 64px !important;
     }
@@ -423,19 +423,21 @@
         padding: 12px 8px;
     }
 
-    /* Main content */
+    /* Mobile main content */
     main {
         margin-left: 64px !important;
         width: calc(100% - 64px) !important;
         max-width: none !important;
+        box-sizing: border-box !important;
     }
 
-    /* Dashboard grids */
+    /* Dashboard */
     .chart-grid,
     .metrics-grid,
     .dashboard-grid,
     .stats-grid {
         grid-template-columns: 1fr !important;
+        width: 100% !important;
     }
 
     /* Cards */
@@ -443,34 +445,39 @@
     .chart-card {
         width: 100% !important;
         max-width: 100% !important;
+        box-sizing: border-box !important;
     }
 
-    /* Page spacing */
+    /* Containers */
     .page,
     .container,
     .content {
+        width: 100% !important;
         max-width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     /* Tables */
     .table-wrapper {
+        width: 100% !important;
         overflow-x: auto !important;
-        max-width: 100% !important;
     }
 
     table {
         min-width: 600px;
     }
 
-    /* Prevent horizontal overflow */
+    /* Prevent page from becoming wider than phone */
+    html,
     body {
+        width: 100% !important;
+        max-width: 100% !important;
         overflow-x: hidden !important;
     }
 
-    /* Images */
     img {
-        max-width: 100%;
-        height: auto;
+        max-width: 100% !important;
+        height: auto !important;
     }
 }
     
