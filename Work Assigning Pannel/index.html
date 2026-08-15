@@ -398,6 +398,81 @@
     .troyz-watermark-icon {
       font-size: 13px;
     }
+    /* ── MOBILE RESPONSIVE FIX ── */
+@media (max-width: 600px) {
+
+    /* Sidebar */
+    #sidebar {
+        width: 64px !important;
+    }
+
+    #sidebar .logo-text,
+    #sidebar .logo-sub,
+    #sidebar .nav-label,
+    #sidebar .nav-section {
+        display: none !important;
+    }
+
+    #sidebar .sidebar-logo {
+        justify-content: center;
+        padding: 18px 8px;
+    }
+
+    #sidebar .nav-item {
+        justify-content: center;
+        padding: 12px 8px;
+    }
+
+    /* Main content */
+    main {
+        margin-left: 64px !important;
+        width: calc(100% - 64px) !important;
+        max-width: none !important;
+    }
+
+    /* Dashboard grids */
+    .chart-grid,
+    .metrics-grid,
+    .dashboard-grid,
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Cards */
+    .metric-card,
+    .chart-card {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Page spacing */
+    .page,
+    .container,
+    .content {
+        max-width: 100% !important;
+    }
+
+    /* Tables */
+    .table-wrapper {
+        overflow-x: auto !important;
+        max-width: 100% !important;
+    }
+
+    table {
+        min-width: 600px;
+    }
+
+    /* Prevent horizontal overflow */
+    body {
+        overflow-x: hidden !important;
+    }
+
+    /* Images */
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+}
     
   </style>
 </head>
