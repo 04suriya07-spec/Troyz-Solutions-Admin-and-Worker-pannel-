@@ -1,17 +1,24 @@
 {
-  "name": "TaskFlow Worker",
-  "short_name": "TF Worker",
+  "name": "TaskFlow Worker — Troyz Solutions",
+  "short_name": "TaskFlow Worker",
   "start_url": "./index.html",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#0A0A14",
   "theme_color": "#00D4AA",
   "description": "Troyz Solutions TaskFlow Worker & Intern Portal",
   "icons": [
     {
-      "src": "https://img.icons8.com/color/512/wrench.png",
+      "src": "./icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "./icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

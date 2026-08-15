@@ -6,7 +6,12 @@
   <title>TaskFlow — Worker Portal</title>
   <meta name="description" content="TaskFlow Worker Portal — complete tasks, track submissions, and receive feedback."/>
   <link rel="manifest" href="manifest.json"/>
-  <meta name="theme-color" content="#00D4AA"/>
+  <link rel="icon" type="image/png" href="icon.png"/>
+  <link rel="apple-touch-icon" href="icon.png"/>
+  <meta name="theme-color" content="#0A0A14"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <!-- Firebase SDK & Cloud Sync -->
@@ -221,7 +226,95 @@
     .troyz-watermark-icon {
       font-size: 13px;
     }
-    
+
+    /* ── NATIVE MOBILE APP LAYOUT ── */
+    .mobile-app-header{display:none}
+    .mobile-bottom-nav{display:none}
+    .modal-handle{display:none}
+
+    @media (max-width: 768px) {
+      body{overscroll-behavior-y:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+      #sidebar{display:none !important}
+      #main{margin-left:0 !important;min-height:100vh;padding-bottom:88px}
+      .topbar{display:none !important}
+      .page{padding:14px 16px 88px;animation:mobilePageIn 0.25s cubic-bezier(0.16,1,0.3,1)}
+      @keyframes mobilePageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+      /* Mobile App Top Bar */
+      .mobile-app-header{
+        display:flex;align-items:center;justify-content:space-between;
+        padding:max(14px, env(safe-area-inset-top)) 18px 14px;
+        background:rgba(15,15,30,0.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+        border-bottom:1px solid var(--glass-border);
+        position:sticky;top:0;z-index:300;
+      }
+      .mah-brand{display:flex;align-items:center;gap:11px}
+      .mah-icon{width:36px;height:36px;border-radius:11px;box-shadow:0 0 16px var(--accent-glow);object-fit:cover}
+      .mah-title{font-size:16px;font-weight:800;letter-spacing:-0.3px;line-height:1.1}
+      .mah-sub{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px}
+      .mah-actions{display:flex;align-items:center;gap:9px}
+      .mah-avatar{width:35px;height:35px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--bg);box-shadow:0 2px 10px var(--accent-glow)}
+      .mah-btn{background:var(--bg3);border:1px solid var(--glass-border);color:var(--text2);width:35px;height:35px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;transition:all var(--transition)}
+      .mah-btn:active{transform:scale(0.92);background:var(--accent-dim);color:var(--accent)}
+
+      /* Native Mobile Bottom Navigation Bar */
+      .mobile-bottom-nav{
+        display:flex;align-items:center;justify-content:space-around;
+        position:fixed;bottom:0;left:0;right:0;height:68px;
+        background:rgba(15,15,30,0.96);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);
+        border-top:1px solid rgba(255,255,255,0.09);
+        z-index:900;padding-bottom:max(4px, env(safe-area-inset-bottom));
+        box-shadow:0 -10px 35px rgba(0,0,0,0.7);
+      }
+      .mb-nav-item{
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        flex:1;height:100%;cursor:pointer;color:var(--text2);
+        transition:all 0.2s ease;position:relative;user-select:none;gap:4px;
+      }
+      .mb-nav-icon{font-size:20px;transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1)}
+      .mb-nav-label{font-size:10px;font-weight:600;letter-spacing:0.2px;transition:color 0.2s ease}
+      .mb-nav-item.active{color:var(--accent)}
+      .mb-nav-item.active .mb-nav-icon{transform:scale(1.22);filter:drop-shadow(0 0 10px var(--accent))}
+      .mb-nav-item.active .mb-nav-label{font-weight:700;color:var(--accent)}
+      .mb-nav-item.active::before{
+        content:'';position:absolute;top:4px;width:28px;height:3px;
+        background:var(--accent);border-radius:99px;box-shadow:0 0 10px var(--accent);
+      }
+      .mb-nav-badge{
+        position:absolute;top:6px;right:22%;background:var(--danger);
+        color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:99px;
+      }
+
+      /* Mobile Bottom Sheet Modals */
+      .modal-overlay{align-items:flex-end !important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+      .modal{
+        width:100vw !important;max-width:100vw !important;
+        border-radius:26px 26px 0 0 !important;
+        max-height:88vh !important;
+        transform:translateY(100%) !important;
+        box-shadow:0 -12px 50px rgba(0,0,0,0.9) !important;
+        transition:transform 0.35s cubic-bezier(0.32,0.72,0,1) !important;
+      }
+      .modal-overlay.open .modal{transform:translateY(0) !important}
+      .modal-handle{
+        display:block;width:44px;height:5px;background:rgba(255,255,255,0.22);
+        border-radius:99px;margin:10px auto 2px;
+      }
+      .modal-header{padding:14px 20px 14px}
+      .modal-body{padding:18px 20px}
+      .modal-footer{padding:14px 20px max(18px, env(safe-area-inset-bottom));flex-direction:column-reverse;gap:10px}
+      .modal-footer .btn{width:100%;justify-content:center;padding:14px;font-size:14px}
+
+      /* Mobile Touch Cards & Grid */
+      .stats-grid{grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+      .stat-card{padding:14px 12px;border-radius:16px}
+      .stat-value{font-size:24px}
+      .worker-task-card{padding:16px;border-radius:18px}
+      .wtc-title{font-size:15px}
+      .wtc-actions{flex-direction:column;align-items:stretch;gap:8px}
+      .wtc-actions .btn{width:100%;justify-content:center;padding:12px;font-size:13px}
+      .troyz-watermark{bottom:76px;right:14px;padding:5px 12px;font-size:9px}
+    }
   </style>
 </head>
 <body>
@@ -231,7 +324,7 @@
   <div class="login-bg-glow"></div>
   <div class="login-card">
     <div class="login-logo-wrap">
-      <div class="login-logo-icon">🛠️</div>
+      <img src="icon.png" style="width:72px;height:72px;border-radius:20px;margin:0 auto 12px;box-shadow:0 0 30px var(--accent-glow);display:block;" alt="Troyz Worker"/>
       <div class="login-logo-title">TaskFlow</div>
       <div class="login-logo-sub">Worker Portal</div>
       <div style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Troyz Solutions</div>
@@ -262,10 +355,25 @@
   </div>
 </div>
 
+<!-- MOBILE APP HEADER -->
+<header class="mobile-app-header">
+  <div class="mah-brand">
+    <img src="icon.png" class="mah-icon" alt="Troyz Worker"/>
+    <div>
+      <div class="mah-title">TaskFlow</div>
+      <div class="mah-sub">Troyz Solutions</div>
+    </div>
+  </div>
+  <div class="mah-actions">
+    <div class="mah-avatar" id="mMiniAvatar">?</div>
+    <button class="mah-btn" onclick="signOut()" title="Sign Out">🚪</button>
+  </div>
+</header>
+
 <!-- SIDEBAR -->
 <aside id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon">🛠️</div>
+    <img src="icon.png" style="width:36px;height:36px;border-radius:10px;box-shadow:0 0 16px var(--accent-glow);object-fit:cover;" alt="Icon"/>
     <div class="logo-text-wrap">
       <div class="logo-text">TaskFlow</div>
       <div class="logo-sub">Troyz Solutions</div>
@@ -287,6 +395,31 @@
     <div onclick="signOut()" style="cursor:pointer;font-size:16px;color:var(--text3);" title="Sign Out">🚪</div>
   </div>
 </aside>
+
+<!-- MOBILE BOTTOM NAVIGATION -->
+<nav class="mobile-bottom-nav">
+  <div class="mb-nav-item active" id="mbnav-home" onclick="navigate('home')">
+    <span class="mb-nav-icon">🏠</span>
+    <span class="mb-nav-label">My Work</span>
+  </div>
+  <div class="mb-nav-item" id="mbnav-inbox" onclick="navigate('inbox')">
+    <span class="mb-nav-icon">⚡</span>
+    <span class="mb-nav-label">Inbox</span>
+    <span class="mb-nav-badge" id="mInboxBadge" style="display:none">0</span>
+  </div>
+  <div class="mb-nav-item" id="mbnav-tasks" onclick="navigate('tasks')">
+    <span class="mb-nav-icon">📋</span>
+    <span class="mb-nav-label">Tasks</span>
+  </div>
+  <div class="mb-nav-item" id="mbnav-submissions" onclick="navigate('submissions')">
+    <span class="mb-nav-icon">📤</span>
+    <span class="mb-nav-label">Feedback</span>
+  </div>
+  <div class="mb-nav-item" id="mbnav-profile" onclick="navigate('profile')">
+    <span class="mb-nav-icon">👤</span>
+    <span class="mb-nav-label">Profile</span>
+  </div>
+</nav>
 
 <!-- MAIN -->
 <main id="main">
@@ -340,6 +473,7 @@
 <!-- SUBMIT WORK MODAL -->
 <div class="modal-overlay" id="submitModal">
   <div class="modal">
+    <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title" id="submitModalTitle">📤 Submit Work</div>
       <div class="modal-close" onclick="closeSubmitModal()">✕</div>
@@ -429,10 +563,13 @@ function initLoginScreen(){
   document.getElementById('loginGate').style.display='flex';
 }
 function enterDashboard(){
-  document.getElementById('myAvatar').textContent=currentWorker.name[0].toUpperCase();
+  const initial=(currentWorker.name||'W')[0].toUpperCase();
+  const mAvatar=document.getElementById('mMiniAvatar');
+  if(mAvatar)mAvatar.textContent=initial;
+  document.getElementById('myAvatar').textContent=initial;
   document.getElementById('myName').textContent=currentWorker.name;
   document.getElementById('myRole').textContent=currentWorker.role;
-  document.getElementById('profileAvatar').textContent=currentWorker.name[0].toUpperCase();
+  document.getElementById('profileAvatar').textContent=initial;
   document.getElementById('profileName').textContent=currentWorker.name;
   document.getElementById('profileRole').textContent=currentWorker.role;
   document.getElementById('profileLoginId').textContent=`Login ID: ${currentWorker.loginId}`;
@@ -446,8 +583,11 @@ function signOut(){if(!confirm('Sign out?'))return;localStorage.removeItem('task
 function navigate(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.mb-nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+page)?.classList.add('active');
   document.getElementById('nav-'+page)?.classList.add('active');
+  document.getElementById('mbnav-'+page)?.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
   if(page==='home')renderHome();
   if(page==='inbox')renderInbox();
   if(page==='tasks')renderAllTasks();

@@ -6,7 +6,12 @@
   <title>TaskFlow — Admin Panel</title>
   <meta name="description" content="TaskFlow Admin Dashboard — manage workers, projects, tasks, applications and reviews."/>
   <link rel="manifest" href="manifest.json"/>
-  <meta name="theme-color" content="#6C63FF"/>
+  <link rel="icon" type="image/png" href="icon.png"/>
+  <link rel="apple-touch-icon" href="icon.png"/>
+  <meta name="theme-color" content="#0A0A14"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -400,97 +405,115 @@
     .troyz-watermark-icon {
       font-size: 13px;
     }
-    /* ── MOBILE RESPONSIVE FIX ── */
-@media (max-width: 600px) {
+    /* ── NATIVE MOBILE APP LAYOUT & POLISH ── */
+    .admin-mobile-header{display:none}
+    .admin-mobile-bottom-nav{display:none}
+    .modal-handle{display:none}
 
-    /* Mobile sidebar */
-    #sidebar {
-        width: 64px !important;
-    }
+    @media (max-width: 768px) {
+      body{overscroll-behavior-y:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+      #sidebar{display:none !important}
+      #main{margin-left:0 !important;min-height:100vh;padding-bottom:88px}
+      .topbar{display:none !important}
+      .page{padding:14px 16px 88px;animation:adminMobileIn 0.25s cubic-bezier(0.16,1,0.3,1)}
+      @keyframes adminMobileIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
-    #sidebar .logo-text,
-    #sidebar .logo-sub,
-    #sidebar .nav-label,
-    #sidebar .nav-section {
-        display: none !important;
-    }
+      /* Mobile Top Bar */
+      .admin-mobile-header{
+        display:flex;align-items:center;justify-content:space-between;
+        padding:max(14px, env(safe-area-inset-top)) 18px 14px;
+        background:rgba(15,15,30,0.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+        border-bottom:1px solid var(--glass-border);
+        position:sticky;top:0;z-index:300;
+      }
+      .amh-brand{display:flex;align-items:center;gap:11px}
+      .amh-icon{width:36px;height:36px;border-radius:11px;box-shadow:0 0 16px var(--accent-glow);object-fit:cover}
+      .amh-title{font-size:16px;font-weight:800;letter-spacing:-0.3px;line-height:1.1}
+      .amh-sub{font-size:9px;color:var(--accent);font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px}
+      .amh-actions{display:flex;align-items:center;gap:9px}
+      .amh-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;box-shadow:0 2px 10px var(--accent-glow)}
 
-    #sidebar .sidebar-logo {
-        justify-content: center;
-        padding: 18px 8px;
-    }
+      /* Native Mobile Bottom Navigation Bar */
+      .admin-mobile-bottom-nav{
+        display:flex;align-items:center;justify-content:space-around;
+        position:fixed;bottom:0;left:0;right:0;height:68px;
+        background:rgba(15,15,30,0.96);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);
+        border-top:1px solid rgba(255,255,255,0.09);
+        z-index:900;padding-bottom:max(4px, env(safe-area-inset-bottom));
+        box-shadow:0 -10px 35px rgba(0,0,0,0.7);
+      }
+      .amb-nav-item{
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        flex:1;height:100%;cursor:pointer;color:var(--text2);
+        transition:all 0.2s ease;position:relative;user-select:none;gap:4px;
+      }
+      .amb-nav-icon{font-size:19px;transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1)}
+      .amb-nav-label{font-size:9.5px;font-weight:600;letter-spacing:0.2px}
+      .amb-nav-item.active{color:var(--accent)}
+      .amb-nav-item.active .amb-nav-icon{transform:scale(1.22);filter:drop-shadow(0 0 10px var(--accent))}
+      .amb-nav-item.active .amb-nav-label{font-weight:700;color:var(--accent)}
+      .amb-nav-item.active::before{
+        content:'';position:absolute;top:4px;width:28px;height:3px;
+        background:var(--accent);border-radius:99px;box-shadow:0 0 10px var(--accent);
+      }
+      .amb-nav-badge{
+        position:absolute;top:6px;right:20%;background:var(--danger);
+        color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:99px;
+      }
 
-    #sidebar .nav-item {
-        justify-content: center;
-        padding: 12px 8px;
-    }
+      /* Mobile Bottom Sheet Modals */
+      .modal-overlay{align-items:flex-end !important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+      .modal{
+        width:100vw !important;max-width:100vw !important;
+        border-radius:26px 26px 0 0 !important;
+        max-height:88vh !important;
+        transform:translateY(100%) !important;
+        box-shadow:0 -12px 50px rgba(0,0,0,0.9) !important;
+        transition:transform 0.35s cubic-bezier(0.32,0.72,0,1) !important;
+      }
+      .modal-overlay.open .modal{transform:translateY(0) !important}
+      .modal-handle{
+        display:block;width:44px;height:5px;background:rgba(255,255,255,0.22);
+        border-radius:99px;margin:10px auto 2px;
+      }
+      .modal-header{padding:14px 20px 14px}
+      .modal-body{padding:18px 20px}
+      .modal-footer{padding:14px 20px max(18px, env(safe-area-inset-bottom));flex-direction:column-reverse;gap:10px}
+      .modal-footer .btn{width:100%;justify-content:center;padding:14px;font-size:14px}
 
-    /* Mobile main content */
-    main {
-        margin-left: 0 !important;
-        width: 100% !important;
-        max-width: none !important;
-        box-sizing: border-box !important;
+      /* Grids and Cards */
+      .stats-grid{grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+      .stat-card{padding:14px 12px;border-radius:16px}
+      .stat-value{font-size:24px}
+      .charts-grid{grid-template-columns:1fr !important;gap:14px}
+      .kanban-board{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;padding-bottom:14px}
+      .kanban-col{min-width:85vw;scroll-snap-align:center}
+      .table-wrapper{overflow-x:auto}
+      .troyz-watermark{bottom:76px;right:14px;padding:5px 12px;font-size:9px}
     }
-
-    /* Dashboard */
-    .chart-grid,
-    .metrics-grid,
-    .dashboard-grid,
-    .stats-grid {
-        grid-template-columns: 1fr !important;
-        width: 100% !important;
-    }
-
-    /* Cards */
-    .metric-card,
-    .chart-card {
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Containers */
-    .page,
-    .container,
-    .content {
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    /* Tables */
-    .table-wrapper {
-        width: 100% !important;
-        overflow-x: auto !important;
-    }
-
-    table {
-        min-width: 600px;
-    }
-
-    /* Prevent page from becoming wider than phone */
-    html,
-    body {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-    }
-
-    img {
-        max-width: 100% !important;
-        height: auto !important;
-    }
-}
-    
   </style>
 </head>
 <body>
 
+<!-- ADMIN MOBILE APP HEADER -->
+<header class="admin-mobile-header">
+  <div class="amh-brand">
+    <img src="icon.png" class="amh-icon" alt="Troyz Admin"/>
+    <div>
+      <div class="amh-title">TaskFlow</div>
+      <div class="amh-sub">Troyz Admin</div>
+    </div>
+  </div>
+  <div class="amh-actions">
+    <button class="btn btn-primary btn-sm" onclick="openTaskModal()">+ Task</button>
+    <div class="amh-avatar">A</div>
+  </div>
+</header>
+
 <!-- SIDEBAR -->
 <aside id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon">🏢</div>
+    <img src="icon.png" style="width:36px;height:36px;border-radius:10px;box-shadow:0 0 16px var(--accent-glow);object-fit:cover;" alt="Admin Icon"/>
     <div class="logo-text-wrap">
       <div class="logo-text">TaskFlow</div>
       <div class="logo-sub">Troyz Solutions</div>
@@ -525,6 +548,35 @@
     </div>
   </div>
 </aside>
+
+<!-- ADMIN MOBILE BOTTOM NAV -->
+<nav class="admin-mobile-bottom-nav">
+  <div class="amb-nav-item active" id="ambnav-dashboard" onclick="navigate('dashboard')">
+    <span class="amb-nav-icon">📊</span>
+    <span class="amb-nav-label">Dashboard</span>
+  </div>
+  <div class="amb-nav-item" id="ambnav-kanban" onclick="navigate('kanban')">
+    <span class="amb-nav-icon">📌</span>
+    <span class="amb-nav-label">Kanban</span>
+  </div>
+  <div class="amb-nav-item" id="ambnav-tasks" onclick="navigate('tasks')">
+    <span class="amb-nav-icon">📝</span>
+    <span class="amb-nav-label">Tasks</span>
+  </div>
+  <div class="amb-nav-item" id="ambnav-workers" onclick="navigate('workers')">
+    <span class="amb-nav-icon">👥</span>
+    <span class="amb-nav-label">Workers</span>
+  </div>
+  <div class="amb-nav-item" id="ambnav-submissions" onclick="navigate('submissions')">
+    <span class="amb-nav-icon">📥</span>
+    <span class="amb-nav-label">Reviews</span>
+    <span class="amb-nav-badge" id="mSubsBadge" style="display:none">0</span>
+  </div>
+  <div class="amb-nav-item" id="ambnav-settings" onclick="navigate('settings')">
+    <span class="amb-nav-icon">⚙️</span>
+    <span class="amb-nav-label">Settings</span>
+  </div>
+</nav>
 
 <!-- MAIN -->
 <main id="main">
@@ -1098,10 +1150,13 @@ const pageMeta={
 function navigate(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.amb-nav-item').forEach(n=>n.classList.remove('active'));
   const el=document.getElementById('page-'+page);
   if(!el)return;
   el.classList.add('active');
   document.getElementById('nav-'+page)?.classList.add('active');
+  document.getElementById('ambnav-'+page)?.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
   const meta=pageMeta[page]||[page,''];
   document.getElementById('pageTitle').textContent=meta[0];
   document.getElementById('pageSubtitle').textContent=meta[1];
